@@ -71,3 +71,4 @@ Win32/
 
 #Translation files (unconverted)
 *.po
+/Win64

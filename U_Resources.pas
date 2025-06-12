@@ -88,6 +88,7 @@ resourcestring
               'https://www.recalbox.com/' + sLineBreak +
               'https://retropie.org.uk/' + sLineBreak + sLineBreak +
               'It is written in Delphi 11.3 by NeeeeB and andresdelcampo' + sLineBreak +
+              'abd fixed with Delphi 12.3 by RaJa a.k.a. Andrew Kambaroff' + sLineBreak +
               'Its source code is fully available at:' + sLineBreak +
               'https://github.com/andresdelcampo/GameList_Editor' + sLineBreak + sLineBreak +
               'Your Gamelist.xml should have been created' + sLineBreak +

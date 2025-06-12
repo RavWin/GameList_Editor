@@ -22,9 +22,6 @@ Coordinates=868,882,82,36
 [Mnu_SetNoHidden]
 Coordinates=1416,1,123,36
 
-[Edt_ReleaseDate]
-Coordinates=487,280,115,58
-
 [Mnu_ConfigSSH]
 Coordinates=1416,56,110,36
 
@@ -37,17 +34,11 @@ Coordinates=731,280,114,58
 [Pgc_Editor]
 Coordinates=466,688,77,36
 
-[Edt_NbPlayers]
-Coordinates=987,10,100,58
-
 [Mnu_ConfigureNetwork]
 Coordinates=1416,111,149,36
 
 [Edt_ScrapePlayers]
 Coordinates=567,552,125,58
-
-[Lbl_Description]
-Coordinates=565,10,104,58
 
 [Wmp_Video]
 Coordinates=372,688,84,36
@@ -64,29 +55,14 @@ Coordinates=1416,166,100,36
 [Mnu_RemoveRegion]
 Coordinates=1416,221,135,36
 
-[Btn_RemoveVideo]
-Coordinates=525,144,121,58
-
 [Mnu_Theme9]
 Coordinates=502,882,93,36
-
-[Img_Game]
-Coordinates=216,484,78,58
 
 [Chk_Mix1]
 Coordinates=849,620,114,58
 
-[Lbl_NbGamesFound]
-Coordinates=975,280,133,58
-
-[Lbl_Developer]
-Coordinates=311,620,97,58
-
 [XMLDoc]
 Coordinates=433,882,63,36
-
-[Edt_Developer]
-Coordinates=1055,552,99,58
 
 [N2]
 Coordinates=258,432,40,36
@@ -94,23 +70,14 @@ Coordinates=258,432,40,36
 [Lbl_ScrapePlayers]
 Coordinates=733,416,123,58
 
-[Edt_Rating]
-Coordinates=567,484,78,58
-
 [Mnu_GaUpperCase]
 Coordinates=1416,276,128,36
 
 [Img_Loading]
 Coordinates=530,416,89,58
 
-[Btn_RemovePicture]
-Coordinates=304,484,129,58
-
 [Lbl_ScrapeDate]
 Coordinates=1118,280,107,58
-
-[Lbl_Filter]
-Coordinates=973,620,68,58
 
 [Mnu_Language]
 Coordinates=1416,331,103,36
@@ -118,33 +85,17 @@ Coordinates=1416,331,103,36
 [Lbl_ScrapePublisher]
 Coordinates=268,348,133,58
 
-[Cbx_Filter]
-Coordinates=343,10,101,124
-Visible=True
-
 [Chk_ScrapeVideo]
 Coordinates=786,212,118,58
 
 [Mnu_System]
 Coordinates=334,882,89,36
 
-[Edt_Search]
-Coordinates=355,552,81,58
-
 [Edt_ScrapeRating]
 Coordinates=866,416,119,58
 
-[Lbx_Games]
-Coordinates=454,10,101,124
-
 [OpenDialog]
 Coordinates=245,882,82,36
-
-[Img_Logo]
-Coordinates=155,280,71,58
-
-[Btn_ChangeAll]
-Coordinates=106,484,100,58
 
 [Pnl_Background]
 Coordinates=612,280,109,58
@@ -160,9 +111,6 @@ Coordinates=10,280,135,58
 
 [Edt_ManualCRC]
 Coordinates=855,280,110,58
-
-[Cbx_Hidden]
-Coordinates=121,10,101,124
 
 [Chk_Title]
 Coordinates=281,416,114,58
@@ -182,23 +130,8 @@ Coordinates=1416,441,123,36
 [Mnu_DeleteOrphans]
 Coordinates=1416,496,133,36
 
-[Img_BackgroundVideo]
-Coordinates=1015,348,144,58
-
 [Btn_ScrapeUpper]
 Coordinates=929,552,116,58
-
-[Btn_MoreInfos]
-Coordinates=501,348,98,58
-
-[Btn_ChangeVideo]
-Coordinates=1126,416,119,58
-
-[Btn_SetDefaultPicture]
-Coordinates=914,212,141,58
-
-[Cbx_Systems]
-Coordinates=232,10,101,124
 
 [Img_ScreenScraper]
 Coordinates=142,416,129,58
@@ -212,9 +145,6 @@ Coordinates=609,348,152,58
 [Edt_ScrapeDeveloper]
 Coordinates=1041,484,140,58
 
-[Tbs_Video]
-Coordinates=286,688,76,36
-
 [Mnu_Theme15]
 Coordinates=1416,606,100,36
 
@@ -224,14 +154,8 @@ Coordinates=0,492,40,36
 [Mnu_Theme13]
 Coordinates=1416,661,100,36
 
-[Btn_ChangeImage]
-Coordinates=995,416,121,58
-
 [Mnu_Theme3]
 Coordinates=67,882,93,36
-
-[Tbs_Picture]
-Coordinates=193,688,83,36
 
 [Btn_ScrapeLower]
 Coordinates=970,144,116,58
@@ -242,9 +166,6 @@ Coordinates=10,552,120,58
 [Mnu_GodMode]
 Coordinates=1416,771,102,36
 
-[Lbl_Genre]
-Coordinates=827,10,74,58
-
 [Edt_ScrapeName]
 Coordinates=405,416,115,58
 
@@ -254,9 +175,6 @@ Coordinates=145,348,113,58
 [Mnu_ShowTips]
 Coordinates=1416,826,103,36
 
-[Edt_Genre]
-Coordinates=188,144,76,58
-
 [Mnu_Actions]
 Coordinates=1416,881,89,36
 
@@ -265,12 +183,6 @@ Coordinates=99,688,84,36
 
 [SaveDialog]
 Coordinates=1327,956,80,36
-
-[Lbl_Favorite]
-Coordinates=140,552,86,58
-
-[Lbl_Players]
-Coordinates=1065,212,82,58
 
 [Mnu_DeleteDuplicates]
 Coordinates=1603,1,144,36
@@ -287,29 +199,11 @@ Coordinates=446,552,111,58
 [Mnu_Theme1]
 Coordinates=1228,956,93,36
 
-[Mmo_Description]
-Coordinates=725,620,114,58
-
-[Chk_ListByRom]
-Coordinates=274,144,114,58
-
-[Edt_RomPath]
-Coordinates=629,416,94,58
-
 [Mnu_LowerCase]
 Coordinates=1603,111,111,36
 
-[Edt_Name]
-Coordinates=956,484,75,58
-
-[Lbl_Region]
-Coordinates=925,348,80,58
-
 [Mnu_Selection]
 Coordinates=1603,166,100,36
-
-[Edt_Publisher]
-Coordinates=727,484,95,58
 
 [Mnu_DeleteWoPrompt]
 Coordinates=1603,221,144,36
@@ -320,35 +214,17 @@ Coordinates=1129,956,92,36
 [Mnu_About]
 Coordinates=1040,956,80,36
 
-[Lbl_Rating]
-Coordinates=1051,620,76,58
-
 [Mnu_SSH]
 Coordinates=961,956,73,36
 
-[Btn_Delete]
-Coordinates=100,144,78,58
-
 [Chk_Box3D]
 Coordinates=137,212,114,58
-
-[Lbl_Name]
-Coordinates=1097,10,73,58
-
-[Edt_Region]
-Coordinates=542,620,82,58
-
-[Chk_FullRomName]
-Coordinates=175,620,126,58
 
 [Lbl_ScrapeDeveloper]
 Coordinates=679,10,138,58
 
 [Mnu_AutoHash]
 Coordinates=1603,276,103,36
-
-[Lbl_Date]
-Coordinates=911,10,66,58
 
 [Img_Scrape]
 Coordinates=656,144,84,58
@@ -377,9 +253,6 @@ Coordinates=684,956,87,36
 [Mnu_NetWork]
 Coordinates=1603,331,96,36
 
-[Lbl_SelectSystem]
-Coordinates=10,212,117,58
-
 [Net_HTTPClient]
 Coordinates=1603,386,108,36
 
@@ -400,15 +273,6 @@ Coordinates=750,144,114,58
 
 [Btn_Scrape]
 Coordinates=634,620,81,58
-
-[Btn_SaveChanges]
-Coordinates=386,212,121,58
-
-[Pgc_Media]
-Coordinates=10,688,79,36
-
-[Lbl_Publisher]
-Coordinates=826,552,93,58
 
 [Img_List]
 Coordinates=0,846,63,36
@@ -439,9 +303,6 @@ Coordinates=229,956,93,36
 
 [Mnu_SetFavorite]
 Coordinates=1603,606,112,36
-
-[Img_System]
-Coordinates=10,484,86,58
 
 [Tbs_Main]
 Coordinates=1137,620,71,36
@@ -482,21 +343,10 @@ Coordinates=702,552,114,58
 [Mnu_UpperCase]
 Coordinates=1785,1,111,36
 
-[Img_BackGround]
-Coordinates=418,620,114,58
-
-[Cbx_Favorite]
-Coordinates=10,10,101,124
-
-[Lbl_Search]
-Coordinates=411,348,80,58
-
 [Mnu_SetNoFavorite]
 Coordinates=1785,56,129,36
 
-[Lbl_Hidden]
-Coordinates=10,144,80,58
-
 []
-Coordinates=1485,1030,91,36
+Coordinates=10,688,79,36
+Visible=True
 

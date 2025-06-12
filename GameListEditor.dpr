@@ -14,7 +14,8 @@ uses
   U_Game in 'U_Game.pas',
   F_ConfigureNetwork in 'F_ConfigureNetwork.pas' {Frm_Network},
   F_AdvNameEditor in 'F_AdvNameEditor.pas' {Frm_AdvNameEditor},
-  U_DownloadThread in 'U_DownloadThread.pas';
+  U_DownloadThread in 'U_DownloadThread.pas',
+  GameListEditor_TLB in 'GameListEditor_TLB.pas';
 
 {$R *.res}
 
