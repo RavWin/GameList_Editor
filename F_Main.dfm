@@ -1031,7 +1031,6 @@ object Frm_Editor: TFrm_Editor
     Align = alClient
     BevelOuter = bvNone
     TabOrder = 0
-    ExplicitWidth = 940
     object Pgc_Editor: TPageControl
       Left = 0
       Top = 0
@@ -1042,7 +1041,6 @@ object Frm_Editor: TFrm_Editor
       MultiLine = True
       TabOrder = 0
       TabPosition = tpRight
-      ExplicitWidth = 940
       object Tbs_Main: TTabSheet
         Caption = 'Game'
         Font.Charset = DEFAULT_CHARSET
@@ -1061,7 +1059,6 @@ object Frm_Editor: TFrm_Editor
           BarColor = clRed
           TabOrder = 0
           Visible = False
-          ExplicitWidth = 912
         end
         object pSystemControls: TPanel
           Left = 0
@@ -1111,8 +1108,10 @@ object Frm_Editor: TFrm_Editor
             Width = 423
             Height = 240
             Align = alTop
-            Caption = 'pSystems'
             TabOrder = 2
+            DesignSize = (
+              423
+              240)
             object Lbl_SelectSystem: TLabel
               Left = 8
               Top = 8
@@ -1138,7 +1137,7 @@ object Frm_Editor: TFrm_Editor
               Enabled = False
             end
             object Img_System: TImage
-              Left = 77
+              Left = 91
               Top = 114
               Width = 241
               Height = 104
@@ -1146,11 +1145,13 @@ object Frm_Editor: TFrm_Editor
               Proportional = True
             end
             object Lbl_NbGamesFound: TLabel
-              Left = 150
+              Left = 112
               Top = 216
-              Width = 12
+              Width = 200
               Height = 13
               Alignment = taCenter
+              Anchors = [akLeft, akTop, akRight]
+              AutoSize = False
               Caption = '---'
             end
             object Cbx_Systems: TComboBox
@@ -1249,7 +1250,6 @@ object Frm_Editor: TFrm_Editor
           Height = 824
           Align = alClient
           TabOrder = 2
-          ExplicitWidth = 487
           object Btn_ChangeImage: TButton
             Left = 87
             Top = 320
@@ -16264,7 +16264,6 @@ object Frm_Editor: TFrm_Editor
           Align = alTop
           BevelOuter = bvNone
           TabOrder = 28
-          ExplicitWidth = 912
           object Scl_Pictures: TScrollBox
             Left = 0
             Top = 0
@@ -16275,8 +16274,6 @@ object Frm_Editor: TFrm_Editor
             BevelInner = bvNone
             BevelOuter = bvNone
             TabOrder = 0
-            ExplicitLeft = 27
-            ExplicitWidth = 1158
             object Img_Loading: TImage
               Left = 257
               Top = 88

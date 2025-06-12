@@ -365,6 +365,7 @@ type
                     cnTr,
                     cnUs );
 const
+   Cst_AppName = 'GameList Editor';
    Cst_Path = 'path';
    Cst_Game = 'game';
    Cst_Name = 'name';

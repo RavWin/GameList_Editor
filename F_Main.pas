@@ -11,8 +11,8 @@ uses
    Vcl.ExtCtrls, Vcl.Imaging.pngimage, Vcl.Imaging.jpeg, Vcl.Menus, Vcl.ComCtrls, Vcl.StdCtrls,
    Xml.omnixmldom, Xml.xmldom, Xml.XMLIntf, Xml.XMLDoc, Xml.Win.msxmldom,
    F_MoreInfos, F_About, F_Help, F_ConfigureSSH, U_gnugettext, U_Resources, U_Game,
-   F_ConfigureNetwork, F_AdvNameEditor, U_DownloadThread,
-   IdURI,
+   F_ConfigureNetwork, F_AdvNameEditor, U_DownloadThread, IdURI,
+   RVer,
    Vcl.OleCtrls, WMPLib_TLB, System.Net.URLClient,
    System.Net.HttpClient, System.Net.HttpClientComponent;
 
@@ -601,6 +601,7 @@ end;
 //A l'ouverture du programme
 procedure TFrm_Editor.FormCreate(Sender: TObject);
 begin
+   Caption := Cst_AppName + ' v' + GetVersion;
    FIsWine := IsRunningUnderWine;
    CreateWindowsMediaPlayer;
    TranslateComponent( Self );
