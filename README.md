@@ -1,3 +1,14 @@
+# GameList Editor v1.1 is renewed
+* Delphi 12 support
+* Design cleanup
+* Video/Image window is larger
+* Themes fixed
+* Resizable window for work with large lists
+* 64 bit native support
+* New controls arrangement
+
+![GameListEditor](https://github.com/user-attachments/assets/6ed10488-1336-4b9b-ad8e-47df39bdc4eb)
+
 # GameList Editor 2025 is here!
 This repository intends to contribute to GameList Editor development and bring it back to life as NeeeeB is not planning to build it anymore and it is no longer scraping or recognizing new systems.
 
@@ -24,7 +35,6 @@ GameList Editor is now in the best shape it ever had!
 - Select File / Choose folder and point to your PC folder or even network RetroPie / Recalbox containing your game systems folders with roms, etc.
 - Note: This tool is not intended for massive scraping but for collection refining - you may use https://www.skraper.net/ for massive scraping purposes.
 
-![GameListEditor1](https://user-images.githubusercontent.com/33843515/147408123-9b64fbbb-200e-4188-9f26-b7ee55af07d5.png)
 ![GameListEditor2](https://user-images.githubusercontent.com/33843515/147408203-ff75b5da-4b4a-484c-b771-fa0eb2b887c1.png)
 
 ### Info for developers / contributors:
