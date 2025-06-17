@@ -2,7 +2,7 @@ object Frm_Editor: TFrm_Editor
   Left = 0
   Top = 0
   Caption = 'GameList Editor'
-  ClientHeight = 849
+  ClientHeight = 792
   ClientWidth = 946
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -1027,20 +1027,22 @@ object Frm_Editor: TFrm_Editor
     Left = 0
     Top = 0
     Width = 946
-    Height = 849
+    Height = 792
     Align = alClient
     BevelOuter = bvNone
     TabOrder = 0
+    ExplicitHeight = 849
     object Pgc_Editor: TPageControl
       Left = 0
       Top = 0
       Width = 946
-      Height = 849
+      Height = 792
       ActivePage = Tbs_Main
       Align = alClient
       MultiLine = True
       TabOrder = 0
       TabPosition = tpRight
+      ExplicitHeight = 849
       object Tbs_Main: TTabSheet
         Caption = 'Game'
         Font.Charset = DEFAULT_CHARSET
@@ -1051,7 +1053,7 @@ object Frm_Editor: TFrm_Editor
         ParentFont = False
         object ProgressBar: TProgressBar
           Left = 0
-          Top = 824
+          Top = 767
           Width = 918
           Height = 17
           Align = alBottom
@@ -1059,21 +1061,23 @@ object Frm_Editor: TFrm_Editor
           BarColor = clRed
           TabOrder = 0
           Visible = False
+          ExplicitTop = 824
         end
         object pSystemControls: TPanel
           Left = 0
           Top = 0
           Width = 425
-          Height = 824
+          Height = 767
           Align = alLeft
           Caption = 'pSystemControls'
           TabOrder = 1
+          ExplicitHeight = 824
           object Lbx_Games: TListBox
             AlignWithMargins = True
             Left = 5
             Top = 245
             Width = 415
-            Height = 545
+            Height = 488
             Margins.Left = 4
             Margins.Top = 4
             Margins.Right = 4
@@ -1086,11 +1090,12 @@ object Frm_Editor: TFrm_Editor
             Sorted = True
             TabOrder = 0
             OnClick = Lbx_GamesClick
+            ExplicitHeight = 545
           end
           object Edt_RomPath: TEdit
             AlignWithMargins = True
             Left = 5
-            Top = 798
+            Top = 741
             Width = 415
             Height = 21
             Margins.Left = 4
@@ -1101,6 +1106,7 @@ object Frm_Editor: TFrm_Editor
             Enabled = False
             ReadOnly = True
             TabOrder = 1
+            ExplicitTop = 798
           end
           object pSystems: TPanel
             Left = 1
@@ -1247,79 +1253,22 @@ object Frm_Editor: TFrm_Editor
           Left = 425
           Top = 0
           Width = 493
-          Height = 824
+          Height = 767
           Align = alClient
           TabOrder = 2
-          object Btn_ChangeImage: TButton
-            Left = 87
-            Top = 320
-            Width = 139
-            Height = 25
-            Caption = 'Change Picture'
-            Enabled = False
-            TabOrder = 0
-            OnClick = Btn_ChangeImageClick
-          end
-          object Btn_SetDefaultPicture: TButton
-            Left = 87
-            Top = 381
-            Width = 284
-            Height = 25
-            Caption = 'Change Picture to default'
-            Enabled = False
-            TabOrder = 1
-            OnClick = Btn_SetDefaultPictureClick
-          end
-          object Btn_ChangeAll: TButton
-            Left = 87
-            Top = 412
-            Width = 284
-            Height = 25
-            Caption = 'Change all missing pictures to default'
-            Enabled = False
-            TabOrder = 2
-            OnClick = Btn_ChangeAllClick
-          end
-          object Btn_RemovePicture: TButton
-            Left = 87
-            Top = 351
-            Width = 139
-            Height = 25
-            Caption = 'Delete Picture'
-            Enabled = False
-            TabOrder = 3
-            OnClick = Btn_RemovePictureClick
-          end
-          object Btn_ChangeVideo: TButton
-            Left = 232
-            Top = 320
-            Width = 139
-            Height = 25
-            Caption = 'Change Video'
-            Enabled = False
-            TabOrder = 4
-            OnClick = Btn_ChangeVideoClick
-          end
-          object Btn_RemoveVideo: TButton
-            Left = 232
-            Top = 351
-            Width = 139
-            Height = 25
-            Caption = 'Delete Video'
-            Enabled = False
-            TabOrder = 5
-            OnClick = Btn_RemoveVideoClick
-          end
+          ExplicitHeight = 824
           object Pgc_Media: TPageControl
-            Left = 24
-            Top = 1
-            Width = 428
-            Height = 308
-            Margins.Left = 0
-            Margins.Top = 0
-            Margins.Right = 0
-            Margins.Bottom = 0
+            AlignWithMargins = True
+            Left = 5
+            Top = 5
+            Width = 483
+            Height = 382
+            Margins.Left = 4
+            Margins.Top = 4
+            Margins.Right = 4
+            Margins.Bottom = 4
             ActivePage = Tbs_Picture
+            Align = alClient
             Font.Charset = DEFAULT_CHARSET
             Font.Color = clWindowText
             Font.Height = -11
@@ -1327,16 +1276,19 @@ object Frm_Editor: TFrm_Editor
             Font.Style = []
             MultiLine = True
             ParentFont = False
-            TabOrder = 6
-            TabPosition = tpLeft
+            TabOrder = 0
+            TabPosition = tpBottom
             OnChange = Pgc_MediaChange
+            ExplicitLeft = 6
+            ExplicitTop = 1
+            ExplicitHeight = 384
             object Tbs_Picture: TTabSheet
               Caption = 'Picture'
               object Img_Game: TImage
                 Left = 0
                 Top = 0
-                Width = 400
-                Height = 300
+                Width = 475
+                Height = 356
                 Align = alClient
                 Center = True
                 Proportional = True
@@ -1346,8 +1298,8 @@ object Frm_Editor: TFrm_Editor
               object Img_BackGround: TImage
                 Left = 0
                 Top = 0
-                Width = 400
-                Height = 300
+                Width = 475
+                Height = 356
                 Align = alClient
                 AutoSize = True
                 Center = True
@@ -5646,8 +5598,9 @@ object Frm_Editor: TFrm_Editor
               object Img_BackgroundVideo: TImage
                 Left = 0
                 Top = 0
-                Width = 350
-                Height = 350
+                Width = 475
+                Height = 356
+                Align = alClient
                 Center = True
                 Picture.Data = {
                   0954506E67496D61676589504E470D0A1A0A0000000D494844520000015E0000
@@ -9934,17 +9887,87 @@ object Frm_Editor: TFrm_Editor
                   000049454E44AE426082}
                 Proportional = True
                 Transparent = True
+                ExplicitWidth = 420
+                ExplicitHeight = 300
+              end
+            end
+            object tsControls: TTabSheet
+              Caption = 'Controls'
+              ImageIndex = 2
+              object Btn_ChangeImage: TButton
+                Left = 3
+                Top = 36
+                Width = 139
+                Height = 25
+                Caption = 'Change Picture'
+                Enabled = False
+                TabOrder = 0
+                OnClick = Btn_ChangeImageClick
+              end
+              object Btn_SetDefaultPicture: TButton
+                Left = 3
+                Top = 69
+                Width = 284
+                Height = 25
+                Caption = 'Change Picture to default'
+                Enabled = False
+                TabOrder = 1
+                OnClick = Btn_SetDefaultPictureClick
+              end
+              object Btn_ChangeAll: TButton
+                Left = 3
+                Top = 102
+                Width = 284
+                Height = 25
+                Caption = 'Change all missing pictures to default'
+                Enabled = False
+                TabOrder = 2
+                OnClick = Btn_ChangeAllClick
+              end
+              object Btn_RemovePicture: TButton
+                Left = 3
+                Top = 3
+                Width = 139
+                Height = 25
+                Caption = 'Delete Picture'
+                Enabled = False
+                TabOrder = 3
+                OnClick = Btn_RemovePictureClick
+              end
+              object Btn_ChangeVideo: TButton
+                Left = 148
+                Top = 3
+                Width = 139
+                Height = 25
+                Caption = 'Change Video'
+                Enabled = False
+                TabOrder = 4
+                OnClick = Btn_ChangeVideoClick
+              end
+              object Btn_RemoveVideo: TButton
+                Left = 148
+                Top = 39
+                Width = 139
+                Height = 25
+                Caption = 'Delete Video'
+                Enabled = False
+                TabOrder = 5
+                OnClick = Btn_RemoveVideoClick
               end
             end
           end
           object pGameData: TPanel
-            Left = 6
-            Top = 443
-            Width = 484
+            Left = 1
+            Top = 391
+            Width = 491
             Height = 375
-            TabOrder = 7
+            Align = alBottom
+            TabOrder = 1
+            ExplicitLeft = 6
+            ExplicitTop = 395
+            ExplicitWidth = 484
             object Lbl_Name: TLabel
-              Left = 3
+              Left = 9
               Top = 5
               Width = 27
               Height = 13
@@ -9952,7 +9975,7 @@ object Frm_Editor: TFrm_Editor
               Enabled = False
             end
             object Lbl_Region: TLabel
-              Left = 196
+              Left = 202
               Top = 135
               Width = 33
               Height = 13
@@ -9960,7 +9983,7 @@ object Frm_Editor: TFrm_Editor
               Enabled = False
             end
             object Lbl_Date: TLabel
-              Left = 3
+              Left = 9
               Top = 50
               Width = 23
               Height = 13
@@ -9971,7 +9994,7 @@ object Frm_Editor: TFrm_Editor
               Enabled = False
             end
             object Lbl_Players: TLabel
-              Left = 99
+              Left = 105
               Top = 50
               Width = 35
               Height = 13
@@ -9979,7 +10002,7 @@ object Frm_Editor: TFrm_Editor
               Enabled = False
             end
             object Lbl_Rating: TLabel
-              Left = 196
+              Left = 202
               Top = 50
               Width = 31
               Height = 13
@@ -9987,7 +10010,7 @@ object Frm_Editor: TFrm_Editor
               Enabled = False
             end
             object Lbl_Hidden: TLabel
-              Left = 389
+              Left = 395
               Top = 50
               Width = 33
               Height = 13
@@ -9995,7 +10018,7 @@ object Frm_Editor: TFrm_Editor
               Enabled = False
             end
             object Lbl_Favorite: TLabel
-              Left = 389
+              Left = 395
               Top = 94
               Width = 40
               Height = 13
@@ -10003,7 +10026,7 @@ object Frm_Editor: TFrm_Editor
               Enabled = False
             end
             object Lbl_Publisher: TLabel
-              Left = 3
+              Left = 9
               Top = 94
               Width = 43
               Height = 13
@@ -10011,7 +10034,7 @@ object Frm_Editor: TFrm_Editor
               Enabled = False
             end
             object Lbl_Developer: TLabel
-              Left = 3
+              Left = 9
               Top = 138
               Width = 49
               Height = 13
@@ -10019,7 +10042,7 @@ object Frm_Editor: TFrm_Editor
               Enabled = False
             end
             object Lbl_Genre: TLabel
-              Left = 196
+              Left = 202
               Top = 94
               Width = 29
               Height = 13
@@ -10027,7 +10050,7 @@ object Frm_Editor: TFrm_Editor
               Enabled = False
             end
             object Lbl_Description: TLabel
-              Left = 3
+              Left = 9
               Top = 203
               Width = 53
               Height = 13
@@ -10035,7 +10058,7 @@ object Frm_Editor: TFrm_Editor
               Enabled = False
             end
             object Lbl_KidGame: TLabel
-              Left = 292
+              Left = 298
               Top = 50
               Width = 44
               Height = 13
@@ -10043,7 +10066,7 @@ object Frm_Editor: TFrm_Editor
               Enabled = False
             end
             object Mmo_Description: TMemo
-              Left = 3
+              Left = 9
               Top = 219
               Width = 474
               Height = 113
@@ -10054,7 +10077,7 @@ object Frm_Editor: TFrm_Editor
               OnKeyPress = Mmo_DescriptionKeyPress
             end
             object Edt_Rating: TEdit
-              Left = 196
+              Left = 202
               Top = 66
               Width = 88
               Height = 21
@@ -10064,7 +10087,7 @@ object Frm_Editor: TFrm_Editor
               OnChange = FieldChange
             end
             object Edt_ReleaseDate: TEdit
-              Left = 3
+              Left = 9
               Top = 66
               Width = 88
               Height = 21
@@ -10078,7 +10101,7 @@ object Frm_Editor: TFrm_Editor
               OnChange = FieldChange
             end
             object Edt_Developer: TEdit
-              Left = 3
+              Left = 9
               Top = 154
               Width = 185
               Height = 21
@@ -10087,7 +10110,7 @@ object Frm_Editor: TFrm_Editor
               OnChange = FieldChange
             end
             object Edt_Publisher: TEdit
-              Left = 3
+              Left = 9
               Top = 110
               Width = 184
               Height = 21
@@ -10096,7 +10119,7 @@ object Frm_Editor: TFrm_Editor
               OnChange = FieldChange
             end
             object Edt_Genre: TEdit
-              Left = 196
+              Left = 202
               Top = 110
               Width = 185
               Height = 21
@@ -10105,7 +10128,7 @@ object Frm_Editor: TFrm_Editor
               OnChange = FieldChange
             end
             object Edt_NbPlayers: TEdit
-              Left = 99
+              Left = 105
               Top = 66
               Width = 88
               Height = 21
@@ -10114,7 +10137,7 @@ object Frm_Editor: TFrm_Editor
               OnChange = FieldChange
             end
             object Edt_Name: TEdit
-              Left = 3
+              Left = 9
               Top = 22
               Width = 474
               Height = 21
@@ -10123,7 +10146,7 @@ object Frm_Editor: TFrm_Editor
               OnChange = FieldChange
             end
             object Btn_SaveChanges: TButton
-              Left = 159
+              Left = 165
               Top = 338
               Width = 153
               Height = 25
@@ -10133,7 +10156,7 @@ object Frm_Editor: TFrm_Editor
               OnClick = Btn_SaveChangesClick
             end
             object Edt_Region: TEdit
-              Left = 196
+              Left = 202
               Top = 154
               Width = 88
               Height = 21
@@ -10142,7 +10165,7 @@ object Frm_Editor: TFrm_Editor
               OnChange = FieldChange
             end
             object Btn_MoreInfos: TButton
-              Left = 3
+              Left = 9
               Top = 338
               Width = 148
               Height = 25
@@ -10152,7 +10175,7 @@ object Frm_Editor: TFrm_Editor
               OnClick = Btn_MoreInfosClick
             end
             object Btn_Delete: TButton
-              Left = 320
+              Left = 326
               Top = 338
               Width = 158
               Height = 25
@@ -10172,7 +10195,7 @@ object Frm_Editor: TFrm_Editor
               OnClick = Btn_DeleteClick
             end
             object Cbx_Hidden: TComboBox
-              Left = 389
+              Left = 395
               Top = 66
               Width = 88
               Height = 21
@@ -10185,7 +10208,7 @@ object Frm_Editor: TFrm_Editor
                 'Yes')
             end
             object Cbx_Favorite: TComboBox
-              Left = 389
+              Left = 395
               Top = 110
               Width = 88
               Height = 21
@@ -10198,7 +10221,7 @@ object Frm_Editor: TFrm_Editor
                 'Yes')
             end
             object Cbx_KidGame: TComboBox
-              Left = 292
+              Left = 298
               Top = 66
               Width = 88
               Height = 21
@@ -10210,6 +10233,16 @@ object Frm_Editor: TFrm_Editor
                 'No'
                 'Yes')
             end
+            object bScrape: TButton
+              Left = 304
+              Top = 147
+              Width = 179
+              Height = 44
+              Caption = 'Scrape'
+              Enabled = False
+              TabOrder = 15
+              OnClick = Btn_ScrapeClick
+            end
           end
         end
       end
@@ -10219,8 +10252,8 @@ object Frm_Editor: TFrm_Editor
         OnHide = Tbs_ScrapeHide
         OnShow = Tbs_ScrapeShow
         object Img_ScreenScraper: TImage
-          Left = 995
-          Top = 644
+          Left = -302
+          Top = 917
           Width = 205
           Height = 38
           Picture.Data = {
@@ -10781,8 +10814,8 @@ object Frm_Editor: TFrm_Editor
             6082}
         end
         object Lbl_ScrapeDescription: TLabel
-          Left = 14
-          Top = 500
+          Left = 15
+          Top = 471
           Width = 53
           Height = 13
           Caption = 'Description'
@@ -10790,47 +10823,47 @@ object Frm_Editor: TFrm_Editor
         end
         object Lbl_ScrapeGenre: TLabel
           Left = 15
-          Top = 453
+          Top = 429
           Width = 29
           Height = 13
           Caption = 'Genre'
           Enabled = False
         end
         object Lbl_ScrapeDeveloper: TLabel
-          Left = 228
-          Top = 408
+          Left = 229
+          Top = 390
           Width = 49
           Height = 13
           Caption = 'Developer'
           Enabled = False
         end
         object Lbl_ScrapePublisher: TLabel
-          Left = 14
-          Top = 408
+          Left = 15
+          Top = 390
           Width = 43
           Height = 13
           Caption = 'Publisher'
           Enabled = False
         end
         object Lbl_ScrapeRating: TLabel
-          Left = 444
-          Top = 408
+          Left = 445
+          Top = 390
           Width = 31
           Height = 13
           Caption = 'Rating'
           Enabled = False
         end
         object Lbl_ScrapePlayers: TLabel
-          Left = 444
-          Top = 453
+          Left = 445
+          Top = 429
           Width = 35
           Height = 13
           Caption = 'Players'
           Enabled = False
         end
         object Lbl_ScrapeDate: TLabel
-          Left = 444
-          Top = 363
+          Left = 445
+          Top = 349
           Width = 23
           Height = 13
           Hint = 
@@ -10840,16 +10873,16 @@ object Frm_Editor: TFrm_Editor
           Enabled = False
         end
         object Lbl_ScrapeRegion: TLabel
-          Left = 228
-          Top = 453
+          Left = 229
+          Top = 429
           Width = 33
           Height = 13
           Caption = 'Region'
           Enabled = False
         end
         object Lbl_ScrapeName: TLabel
-          Left = 14
-          Top = 363
+          Left = 15
+          Top = 349
           Width = 27
           Height = 13
           Caption = 'Name'
@@ -15156,8 +15189,8 @@ object Frm_Editor: TFrm_Editor
           Proportional = True
         end
         object Img_Logo: TImage
-          Left = 196
-          Top = 708
+          Left = 15
+          Top = 700
           Width = 532
           Height = 89
           Center = True
@@ -17569,18 +17602,18 @@ object Frm_Editor: TFrm_Editor
           end
         end
         object Btn_Scrape: TButton
-          Left = 976
-          Top = 377
+          Left = 655
+          Top = 677
           Width = 209
-          Height = 25
+          Height = 44
           Caption = 'Scrape'
           Enabled = False
           TabOrder = 19
           OnClick = Btn_ScrapeClick
         end
         object Mmo_ScrapeDescription: TMemo
-          Left = 11
-          Top = 516
+          Left = 15
+          Top = 486
           Width = 538
           Height = 113
           Enabled = False
@@ -17589,48 +17622,48 @@ object Frm_Editor: TFrm_Editor
           OnKeyPress = Mmo_DescriptionKeyPress
         end
         object Edt_ScrapeGenre: TEdit
-          Left = 12
-          Top = 469
+          Left = 15
+          Top = 443
           Width = 185
           Height = 21
           Enabled = False
           TabOrder = 14
         end
         object Edt_ScrapeDeveloper: TEdit
-          Left = 225
-          Top = 424
+          Left = 229
+          Top = 403
           Width = 185
           Height = 21
           Enabled = False
           TabOrder = 12
         end
         object Edt_ScrapePublisher: TEdit
-          Left = 11
-          Top = 424
+          Left = 15
+          Top = 402
           Width = 185
           Height = 21
           Enabled = False
           TabOrder = 11
         end
         object Edt_ScrapeRating: TEdit
-          Left = 441
-          Top = 424
+          Left = 445
+          Top = 404
           Width = 108
           Height = 21
           Enabled = False
           TabOrder = 13
         end
         object Edt_ScrapePlayers: TEdit
-          Left = 441
-          Top = 469
+          Left = 445
+          Top = 442
           Width = 108
           Height = 21
           Enabled = False
           TabOrder = 16
         end
         object Edt_ScrapeDate: TEdit
-          Left = 441
-          Top = 379
+          Left = 445
+          Top = 364
           Width = 108
           Height = 21
           Hint = 
@@ -17642,42 +17675,42 @@ object Frm_Editor: TFrm_Editor
           TabOrder = 10
         end
         object Edt_ScrapeRegion: TEdit
-          Left = 225
-          Top = 469
+          Left = 229
+          Top = 441
           Width = 185
           Height = 21
           Enabled = False
           TabOrder = 15
         end
         object Edt_ScrapeName: TEdit
-          Left = 11
-          Top = 379
+          Left = 15
+          Top = 363
           Width = 399
           Height = 21
           Enabled = False
           TabOrder = 9
         end
         object Btn_ScrapeSave: TButton
-          Left = 976
-          Top = 541
-          Width = 209
-          Height = 25
+          Left = 131
+          Top = 634
+          Width = 189
+          Height = 60
           Caption = 'Save Changes for this game'
           Enabled = False
           TabOrder = 24
           OnClick = Btn_ScrapeSaveClick
         end
         object Edt_ScrapeRomPath: TEdit
-          Left = 12
-          Top = 642
+          Left = 15
+          Top = 606
           Width = 537
           Height = 21
           ReadOnly = True
           TabOrder = 18
         end
         object Btn_ScrapeLower: TButton
-          Left = 976
-          Top = 498
+          Left = 343
+          Top = 669
           Width = 209
           Height = 25
           Caption = 'Convert all text to lowercase'
@@ -17686,8 +17719,8 @@ object Frm_Editor: TFrm_Editor
           OnClick = Btn_ScrapeLowerClick
         end
         object Btn_ScrapeUpper: TButton
-          Left = 976
-          Top = 467
+          Left = 344
+          Top = 634
           Width = 209
           Height = 25
           Caption = 'Convert all text to uppercase'
@@ -17696,9 +17729,9 @@ object Frm_Editor: TFrm_Editor
           OnClick = Btn_ScrapeUpperClick
         end
         object Chk_ScrapePicture: TCheckBox
-          Left = 976
-          Top = 593
-          Width = 209
+          Left = 15
+          Top = 659
+          Width = 110
           Height = 17
           Caption = 'Save picture'
           Enabled = False
@@ -17706,9 +17739,9 @@ object Frm_Editor: TFrm_Editor
           OnClick = Chk_ScrapeClick
         end
         object Chk_ScrapeInfos: TCheckBox
-          Left = 976
-          Top = 614
-          Width = 209
+          Left = 15
+          Top = 680
+          Width = 110
           Height = 17
           Caption = 'Save infos'
           Checked = True
@@ -17718,8 +17751,8 @@ object Frm_Editor: TFrm_Editor
           OnClick = Chk_ScrapeClick
         end
         object Chk_ManualCRC: TCheckBox
-          Left = 976
-          Top = 408
+          Left = 655
+          Top = 727
           Width = 209
           Height = 17
           Caption = 'Enter CRC32 manually'
@@ -17728,8 +17761,8 @@ object Frm_Editor: TFrm_Editor
           OnClick = Chk_ManualCRCClick
         end
         object Edt_ManualCRC: TEdit
-          Left = 976
-          Top = 427
+          Left = 655
+          Top = 746
           Width = 209
           Height = 21
           Enabled = False
@@ -17741,8 +17774,6 @@ object Frm_Editor: TFrm_Editor
           Width = 90
           Height = 17
           Caption = 'Box 2D'
-          Checked = True
-          State = cbChecked
           TabOrder = 0
         end
         object Chk_Box3D: TCheckBox
@@ -17751,8 +17782,6 @@ object Frm_Editor: TFrm_Editor
           Width = 90
           Height = 17
           Caption = 'Box 3D'
-          Checked = True
-          State = cbChecked
           TabOrder = 1
         end
         object Chk_Mix1: TCheckBox
@@ -17761,8 +17790,6 @@ object Frm_Editor: TFrm_Editor
           Width = 90
           Height = 17
           Caption = 'Mix 1'
-          Checked = True
-          State = cbChecked
           TabOrder = 2
         end
         object Chk_Mix2: TCheckBox
@@ -17781,8 +17808,6 @@ object Frm_Editor: TFrm_Editor
           Width = 90
           Height = 17
           Caption = 'Screenshot'
-          Checked = True
-          State = cbChecked
           TabOrder = 4
         end
         object Chk_Title: TCheckBox
@@ -17791,8 +17816,6 @@ object Frm_Editor: TFrm_Editor
           Width = 90
           Height = 17
           Caption = 'Title'
-          Checked = True
-          State = cbChecked
           TabOrder = 5
         end
         object Chk_ArcadeBox: TCheckBox
@@ -17801,8 +17824,6 @@ object Frm_Editor: TFrm_Editor
           Width = 90
           Height = 17
           Caption = 'Arcade Box'
-          Checked = True
-          State = cbChecked
           TabOrder = 6
         end
         object Chk_Wheel: TCheckBox
@@ -17811,14 +17832,12 @@ object Frm_Editor: TFrm_Editor
           Width = 90
           Height = 17
           Caption = 'Wheel'
-          Checked = True
-          State = cbChecked
           TabOrder = 7
         end
         object Chk_ScrapeVideo: TCheckBox
-          Left = 976
-          Top = 572
-          Width = 209
+          Left = 15
+          Top = 638
+          Width = 110
           Height = 17
           Caption = 'Save video'
           Enabled = False
@@ -17831,8 +17850,6 @@ object Frm_Editor: TFrm_Editor
           Width = 90
           Height = 17
           Caption = 'Video'
-          Checked = True
-          State = cbChecked
           TabOrder = 8
         end
       end

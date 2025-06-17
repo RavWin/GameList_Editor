@@ -153,12 +153,6 @@ type
     Img_System: TImage;
     Lbl_NbGamesFound: TLabel;
     pGameEdit: TPanel;
-    Btn_ChangeImage: TButton;
-    Btn_SetDefaultPicture: TButton;
-    Btn_ChangeAll: TButton;
-    Btn_RemovePicture: TButton;
-    Btn_ChangeVideo: TButton;
-    Btn_RemoveVideo: TButton;
     Pgc_Media: TPageControl;
     Tbs_Picture: TTabSheet;
     Img_Game: TImage;
@@ -194,6 +188,14 @@ type
     Cbx_Favorite: TComboBox;
     Cbx_KidGame: TComboBox;
     Img_Logo: TImage;
+    tsControls: TTabSheet;
+    Btn_ChangeImage: TButton;
+    Btn_SetDefaultPicture: TButton;
+    Btn_ChangeAll: TButton;
+    Btn_RemovePicture: TButton;
+    Btn_ChangeVideo: TButton;
+    Btn_RemoveVideo: TButton;
+    bScrape: TButton;
 
       procedure FormCreate(Sender: TObject);
       procedure FormDestroy(Sender: TObject);
@@ -516,6 +518,8 @@ begin
       FProxyServer:= FileIni.ReadString( Cst_IniOptions, Cst_IniProxyServer, '');
       FProxyPort:= FileIni.ReadString( Cst_IniOptions, Cst_IniProxyPort, '0');
       FProxyUse:= FileIni.ReadBool( Cst_IniOptions, Cst_IniProxyUse, False);
+
+      FRootPath:= FileIni.ReadString( Cst_IniOptions, Cst_IniRootFolder, '');
    finally
       FileIni.Free;
    end;
@@ -548,6 +552,7 @@ begin
       FileIni.WriteString( Cst_IniOptions, Cst_IniProxyUser, FProxyUser);
       FileIni.WriteString( Cst_IniOptions, Cst_IniProxyPwd, FProxyPwd);
       FileIni.WriteString( Cst_IniOptions, Cst_IniProxyServer, FProxyServer);
+      FileIni.WriteString( Cst_IniOptions, Cst_IniRootFolder, FRootPath);
       if ( FProxyPort.IsEmpty ) then FileIni.WriteString( Cst_IniOptions, Cst_IniProxyPort, '0' )
       else FileIni.WriteString( Cst_IniOptions, Cst_IniProxyPort, FProxyPort );
       FileIni.WriteBool( Cst_IniOptions, Cst_IniProxyUse, FProxyUse);
@@ -667,6 +672,17 @@ begin
    end;
    Tbs_Scrape.TabVisible:= False;
    Mnu_ShowTips.Checked:= FShowTips;
+   if (FRootPath<>'') and (Lbx_Games.Items.Count < 1) then begin
+     OpenDialog.FileName := FRootPath;
+     Img_BackGround.Visible:= True;
+//     EnableControls( False );
+//     Edt_Search.Enabled:= False;
+//     Lbl_Search.Enabled:= False;
+//     ClearAllFields;
+     Lbx_Games.Items.Clear;
+     BuildSystemsList(true);
+     Btn_SaveChanges.Enabled:= False;
+   end;
    Lbx_Games.SetFocus;
 end;
 
@@ -1440,6 +1456,7 @@ begin
    Btn_MoreInfos.Enabled:= aValue;
    Btn_Delete.Enabled:= True;
    Btn_Scrape.Enabled:= aValue;
+   bScrape.Enabled := aValue;
    Btn_ChangeImage.Enabled:= aValue;
    Btn_ChangeVideo.Enabled:= aValue;
    Btn_RemovePicture.Enabled:= aValue;
@@ -4021,6 +4038,7 @@ end;
 procedure TFrm_Editor.Btn_ScrapeClick( Sender: TObject );
 begin
    //On nettoie les listes et champs pour commencer
+   Pgc_Editor.ActivePage := Tbs_Scrape;
    EmptyScrapeFields;
    ClearScrapeMedia;
 

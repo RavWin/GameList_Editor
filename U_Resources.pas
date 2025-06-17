@@ -419,6 +419,7 @@ const
    Cst_IniProxyServer = 'ProxyServer';
    Cst_IniProxyPort = 'ProxyPort';
    Cst_IniProxyUse = 'ProxyUse';
+   Cst_IniRootFolder = 'RootFolder';
 
    Cst_GenesisLogoName = 'genesis.png';
    Cst_ThemeNumber = 'ThemeNumber';
