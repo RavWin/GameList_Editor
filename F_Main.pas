@@ -14,7 +14,8 @@ uses
    F_ConfigureNetwork, F_AdvNameEditor, U_DownloadThread, IdURI,
    RVer,
    Vcl.OleCtrls, WMPLib_TLB, System.Net.URLClient,
-   System.Net.HttpClient, System.Net.HttpClientComponent;
+   System.Net.HttpClient, System.Net.HttpClientComponent, System.Actions,
+  Vcl.ActnList, Vcl.Mask;
 
 type
    TMediaInfo = class
@@ -196,6 +197,24 @@ type
     Btn_ChangeVideo: TButton;
     Btn_RemoveVideo: TButton;
     bScrape: TButton;
+    pmGameList: TPopupMenu;
+    pm_RemoveFromList: TMenuItem;
+    pm_FindImage: TMenuItem;
+    pm_FindVideo: TMenuItem;
+    alMain: TActionList;
+    aViewGame: TAction;
+    aViewScraper: TAction;
+    tsGameList: TTabSheet;
+    aViewGameLists: TAction;
+    lbRoms: TListBox;
+    bScanFolder: TButton;
+    leROMext: TLabeledEdit;
+    mLog: TMemo;
+    lbListRoms: TListBox;
+    bAddToList: TButton;
+    pm_SaveGameList: TMenuItem;
+    Mnu_AutoLoadOnStart: TMenuItem;
+    pm_ScanForROMs: TMenuItem;
 
       procedure FormCreate(Sender: TObject);
       procedure FormDestroy(Sender: TObject);
@@ -259,6 +278,17 @@ type
       procedure Pgc_MediaChange(Sender: TObject);
       procedure Btn_ChangeVideoClick(Sender: TObject);
       procedure Btn_RemoveVideoClick(Sender: TObject);
+    procedure Lbx_GamesDrawItem(Control: TWinControl; Index: Integer;
+      Rect: TRect; State: TOwnerDrawState);
+    procedure aViewGameExecute(Sender: TObject);
+    procedure aViewScraperExecute(Sender: TObject);
+    procedure aViewGameListsExecute(Sender: TObject);
+    procedure bScanFolderClick(Sender: TObject);
+    procedure bAddToListClick(Sender: TObject);
+    procedure pm_RemoveFromListClick(Sender: TObject);
+    procedure pm_SaveGameListClick(Sender: TObject);
+    procedure Mnu_AutoLoadOnStartClick(Sender: TObject);
+    procedure pm_ScanForROMsClick(Sender: TObject);
 
    private
 
@@ -278,6 +308,8 @@ type
       FIsWine: Boolean;
       GSystemList: TObjectDictionary<string,TObjectList<TGame>>;
       Wmp_Video: TWindowsMediaPlayer;
+
+      FAutoLoadOnStart: Boolean; // Auto Load Last Root Folder on start
 
       FPrevWinControl: TWinControl;
 
@@ -351,6 +383,11 @@ type
 
       function GetGameXml( const aSysId: string; aGame: TGame ): Boolean;
       function GetFileSize( const aPath: string ): string;
+
+      procedure FindGameRoms( const aSystem: string );
+      procedure SaveGamelist(const FileName: string; aGameList: TObjectList<TGame>);
+      procedure AddRomList(aRoms: TStrings);
+
 
    public
       FProxyServer, FProxyUser,
@@ -520,6 +557,7 @@ begin
       FProxyUse:= FileIni.ReadBool( Cst_IniOptions, Cst_IniProxyUse, False);
 
       FRootPath:= FileIni.ReadString( Cst_IniOptions, Cst_IniRootFolder, '');
+      FAutoLoadOnStart := FileIni.ReadBool( Cst_IniOptions, Cst_IniAutoLoadOnStart, True);
    finally
       FileIni.Free;
    end;
@@ -556,6 +594,7 @@ begin
       if ( FProxyPort.IsEmpty ) then FileIni.WriteString( Cst_IniOptions, Cst_IniProxyPort, '0' )
       else FileIni.WriteString( Cst_IniOptions, Cst_IniProxyPort, FProxyPort );
       FileIni.WriteBool( Cst_IniOptions, Cst_IniProxyUse, FProxyUse);
+      FileIni.WriteBool( Cst_IniOptions, Cst_IniAutoLoadOnStart, FAutoLoadOnStart);
    finally
       FileIni.Free;
    end;
@@ -616,6 +655,7 @@ begin
    Lbl_NbGamesFound.Caption:= '';
    GSystemList:= TObjectDictionary<string, TObjectList<TGame>>.Create([doOwnsValues]);
    LoadFromIni;
+   Mnu_AutoLoadOnStart.Checked := FAutoLoadOnStart;
    TStyleManager.TrySetStyle( Cst_ThemeNameStr[GetThemeEnum( FThemeNumber )] );
    FPiLoadedOnce:= False;
    FTempXmlPath:= ExtractFilePath( Application.ExeName ) + Cst_TempXml;
@@ -657,6 +697,7 @@ procedure TFrm_Editor.FormShow(Sender: TObject);
 var
    Frm_Help: TFrm_Help;
 begin
+   Pgc_Editor.ActivePage := Tbs_Main;
    UseLanguage( Cst_LangNameStr[GetLangEnum( FLanguage )] );
    RetranslateComponent( Self );
    CheckMenuItem( Succ( FThemeNumber ) );
@@ -672,13 +713,9 @@ begin
    end;
    Tbs_Scrape.TabVisible:= False;
    Mnu_ShowTips.Checked:= FShowTips;
-   if (FRootPath<>'') and (Lbx_Games.Items.Count < 1) then begin
+   if (FRootPath<>'') and (Lbx_Games.Items.Count < 1)  and (FAutoLoadOnStart) then begin
      OpenDialog.FileName := FRootPath;
      Img_BackGround.Visible:= True;
-//     EnableControls( False );
-//     Edt_Search.Enabled:= False;
-//     Lbl_Search.Enabled:= False;
-//     ClearAllFields;
      Lbx_Games.Items.Clear;
      BuildSystemsList(true);
      Btn_SaveChanges.Enabled:= False;
@@ -1227,7 +1264,6 @@ var
    _ParsedReferenceDate: TDate;
    _NameCountMap: TDictionary<string, Integer>;
    _ROMPathCountMap: TDictionary<string, Integer>;
-   i: Integer;
 begin
    //on stocke le "numero" de filtre.
    _FilterIndex:= Cbx_Filter.ItemIndex;
@@ -1418,6 +1454,32 @@ begin
       EnableComponents( True );
       LoadGame( ( Lbx_Games.Items.Objects[Lbx_Games.ItemIndex] as TGame ) );
    end;
+end;
+
+procedure TFrm_Editor.Lbx_GamesDrawItem(Control: TWinControl; Index: Integer;
+  Rect: TRect; State: TOwnerDrawState);
+begin
+  if Index<0 then exit;
+
+  var iColor := (Lbx_Games.Items.Objects[Index] as TGame).Color;
+
+  with (Control as TListBox) do  begin
+    if iColor < 0 then
+      Canvas.Font.Color := Lbx_Games.Font.Color
+    else
+      Canvas.Font.Color := iColor;
+
+    if odSelected in State then
+      Canvas.Brush.Color := clHighlight;
+
+    Canvas.FillRect(Rect);
+//    Canvas.TextOut(Rect.Left + 2, Rect.Top, Items[Index]);
+    if odFocused In State then begin
+//      Canvas.Brush.Color := Lbx_Games.Color;
+//      Canvas.DrawFocusRect(Rect);
+    end;
+    Canvas.TextOut(Rect.Left + 2, Rect.Top, Items[Index]);
+  end;
 end;
 
 //Dйsactivation des composants quand multiselect
@@ -1659,8 +1721,63 @@ begin
    Lbx_Games.SetFocus;
 end;
 
+procedure TFrm_Editor.AddRomList(aRoms: TStrings);
+var
+  I: Integer;
+  newGame : TGame;
+  gameList: TObjectList<TGame>;
+begin
+  GSystemList.TryGetValue( getCurrentFolderName, gameList );
+  
+  for I := 0 to pred(aRoms.Count) do begin
+    newGame := TGame.Create('./'+lbRoms.Items[i], TPath.GetFileNameWithoutExtension(lbRoms.Items[i]), 
+      '', '', '', '', '', '', '', '', '', '', '', '', '', '', '');
+    newGame.PhysicalRomPath:= GetPhysicalRomPath( newGame.RomPath );
+    newGame.Color := clSkyBlue;
+    gameList.Add(newGame);
+  end;
+end;
+
 //Action au click "change all missing to default"
 //Assigne l'image defaut du systиme а tous les jeux qui n'ont pas d'image
+procedure TFrm_Editor.aViewGameExecute(Sender: TObject);
+begin
+  Pgc_Editor.ActivePage := Tbs_Main;
+end;
+
+procedure TFrm_Editor.aViewGameListsExecute(Sender: TObject);
+begin
+  Pgc_Editor.ActivePage := tsGameList;
+end;
+
+procedure TFrm_Editor.aViewScraperExecute(Sender: TObject);
+begin
+  Pgc_Editor.ActivePage := Tbs_Scrape;
+end;
+
+procedure TFrm_Editor.bAddToListClick(Sender: TObject);
+var
+  I: Integer;
+  gameList: TStringList;
+ 
+begin
+  gameList := TStringList.Create;
+
+  for I := 0 to pred(lbRoms.Items.Count) do begin
+    if lbRoms.Selected[i] then begin
+      gameList.Add(lbRoms.Items[i]);
+    end;
+  end;
+  AddRomList(gameList);
+  LoadGamesList( getCurrentFolderName );
+  FreeAndNil(gameList);
+end;
+
+procedure TFrm_Editor.bScanFolderClick(Sender: TObject);
+begin
+  FindGameRoms(getCurrentFolderName);
+end;
+
 procedure TFrm_Editor.Btn_ChangeAllClick(Sender: TObject);
 var
    ii: Integer;
@@ -2495,6 +2612,62 @@ begin
    end;
 end;
 
+procedure TFrm_Editor.SaveGamelist(const FileName: string;
+  aGameList: TObjectList<TGame>);
+var
+  XMLDoc: IXMLDocument;
+  RootNode, GameNode: IXMLNode;
+  i: Integer;
+  Game: TGame;
+begin
+  XMLDoc := TXMLDocument.Create(nil);
+  try
+    XMLDoc.Active := True;
+    XMLDoc.Version := '1.0';
+    XMLDoc.Encoding := 'utf-8';
+    XMLDoc.Options := XMLDoc.Options + [doNodeAutoIndent];
+    RootNode := XMLDoc.AddChild('gameList');
+
+    for i := 0 to aGameList.Count - 1 do
+    begin
+      Game := TGame(aGameList[i]);
+
+      GameNode := RootNode.AddChild(Cst_game);
+
+      GameNode.AddChild(Cst_Path).Text := Game.RomPath;
+      GameNode.AddChild(Cst_Name).Text := Game.Name;
+      GameNode.AddChild(Cst_Description).Text := Game.Description;
+      GameNode.AddChild(Cst_ImageLink).Text := Game.ImagePath;
+      GameNode.AddChild(Cst_VideoLink).Text := Game.VideoPath;
+      GameNode.AddChild(Cst_Genre).Text := Game.Genre;
+      GameNode.AddChild(Cst_Rating).Text := Game.Rating; 
+      GameNode.AddChild(Cst_Players).Text := Game.Players;
+      GameNode.AddChild(Cst_Developer).Text := Game.Developer;
+      GameNode.AddChild(Cst_ReleaseDate).Text := Game.ReleaseDate;
+      GameNode.AddChild(Cst_Publisher).Text := Game.Publisher;
+    end;
+
+    XMLDoc.SaveToFile(FileName);
+  finally
+    XMLDoc := nil;
+  end;
+end;
+
+procedure TFrm_Editor.pm_SaveGameListClick(Sender: TObject);
+var
+  gameList: TObjectList<TGame>;
+begin
+  GSystemList.TryGetValue( getCurrentFolderName, gameList);
+  SaveGamelist( IncludeTrailingPathDelimiter( FRootPath + getCurrentFolderName )+Cst_GameListFileName, gameList);
+end;
+
+procedure TFrm_Editor.pm_ScanForROMsClick(Sender: TObject);
+begin
+  FindGameRoms(getCurrentFolderName);
+  AddRomList(lbRoms.Items);
+  LoadGamesList( getCurrentFolderName );  
+end;
+
 procedure TFrm_Editor.SaveLinkToFile ( aLink, aPath: string );
 var
    Stream: TBytesStream;
@@ -2931,6 +3104,12 @@ begin
    FAutoHash:= Mnu_AutoHash.Checked;
 end;
 
+procedure TFrm_Editor.Mnu_AutoLoadOnStartClick(Sender: TObject);
+begin
+  Mnu_AutoLoadOnStart.Checked := not Mnu_AutoLoadOnStart.Checked;
+  FAutoLoadOnStart := Mnu_AutoLoadOnStart.Checked;
+end;
+
 //Au click sur le menu item Del Without Prompt
 procedure TFrm_Editor.Mnu_DeleteWoPromptClick(Sender: TObject);
 begin
@@ -3267,6 +3446,19 @@ begin
 end;
 
 //supprime le tag entre [] de region dans le nom des jeux
+procedure TFrm_Editor.pm_RemoveFromListClick(Sender: TObject);
+var
+  gameList: TObjectList<TGame>;
+begin
+  if Lbx_Games.ItemIndex<0 then
+    exit;
+  GSystemList.TryGetValue( getCurrentFolderName, gameList);
+  if Lbx_Games.Items[Lbx_Games.ItemIndex] = gameList[Lbx_Games.ItemIndex].Name then begin
+    gameList.Delete(Lbx_Games.ItemIndex);
+  end;
+  LoadGamesList( getCurrentFolderName );
+end;
+
 procedure TFrm_Editor.RemoveRegionFromGameName( aGame: TGame; aStartPos: Integer );
 var
    _Node: IXMLNode;
@@ -3946,6 +4138,93 @@ begin
    //note
    Edt_ScrapeRating.Text:= FInfosList[8];
 
+end;
+
+procedure TFrm_Editor.FindGameRoms(const aSystem: string);
+
+  function FindFiles(const Path, Mask: string): TStringList;
+  var
+    Masks: TArray<string>;
+    CurrentMask: string;
+    SearchRec: TSearchRec;
+    FullPath: string;
+    Found: Integer;
+    UniqueFiles: TDictionary<string, Boolean>;
+  begin
+    Result := TStringList.Create;
+    if not DirectoryExists(Path) then Exit;
+
+    UniqueFiles := TDictionary<string, Boolean>.Create;
+    try
+      // Разбиваем комплексную маску на отдельные маски
+      Masks := Mask.Split([';'], TStringSplitOptions.ExcludeEmpty);
+
+      for CurrentMask in Masks do
+      begin
+        // Начинаем поиск по текущей маске
+        Found := FindFirst(IncludeTrailingPathDelimiter(Path) + CurrentMask, faAnyFile, SearchRec);
+        try
+          while Found = 0 do
+          begin
+            // Пропускаем системные папки и директории
+            if (SearchRec.Name <> '.') and
+               (SearchRec.Name <> '..') and
+               ((SearchRec.Attr and faDirectory) = 0) then
+            begin
+              FullPath := IncludeTrailingPathDelimiter(Path) + SearchRec.Name;
+
+              // Добавляем только уникальные файлы
+              if not UniqueFiles.ContainsKey(FullPath) then
+              begin
+                Result.Add( ExtractFileName(FullPath));
+                UniqueFiles.Add(FullPath, True);
+              end;
+            end;
+            Found := FindNext(SearchRec);
+          end;
+        finally
+          FindClose(SearchRec);
+        end;
+      end;
+    finally
+      UniqueFiles.Free;
+    end;
+  end;
+  
+var
+  rom: Integer;
+  game: Integer;
+  newGame: TGame;
+  gamePath: String;
+  romFiles : TStringList;
+  gameList: TObjectList<TGame>;
+begin
+  gamePath:=IncludeTrailingPathDelimiter( FRootPath + aSystem );
+  romFiles := FindFiles(gamePath, leROMext.Text);
+  mLog.Lines.Add(IntToStr(romFiles.Count) +' files found');
+
+  GSystemList.TryGetValue( getCurrentFolderName, gameList );
+
+  for game := 0 to Pred( gameList.Count ) do begin
+    for rom := 0 to Pred( romFiles.Count ) do begin
+      if romFiles[rom] = ExtractFileName((gameList[game]).RomName) then begin
+        mLog.Lines.Add({'G'+IntToStr(game) + '= R'+IntToStr(rom)+ ' '+}romFiles[rom]+' is '+ gameList[game].Name);
+        romFiles.Delete(rom);
+        break;
+      end;
+    end;
+  end;
+
+  lbRoms.Clear;
+  lbRoms.Items.Assign(romFiles);
+
+  mLog.Lines.Add(IntToStr(lbRoms.Items.Count) +' new games found');
+
+  { DONE -oRaJa -cFeature : Add missing ROMs to GameList }
+  { TODO -oRaJa -cFeature : Join gamelists: Add gamelist file to active gamelist }
+  { TODO -oRaJa -cFeature : Find Video in Media folder }
+  { TODO -oRaJa -cFeature : Find Image in Media folder }
+  { TODO -oRaJa -cFeature : Delete Selected Records from GameList }
 end;
 
 //convertit les champs du scrape en maj ou min

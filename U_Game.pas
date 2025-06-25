@@ -5,6 +5,7 @@ interface
 uses
    System.StrUtils, System.Classes, System.SysUtils,
    IdHashMessageDigest, IdHashSHA, IdHashCRC,
+   System.UITypes,
    U_Resources;
 
 type
@@ -18,6 +19,7 @@ type
 
    TGame = class
    private
+      fColor: TColor;
 
       FRomPath: string;
       FRomName: string;
@@ -84,6 +86,8 @@ type
       property PhysicalImagePath: string read FPhysicalImagePath write FPhysicalImagePath;
       property PhysicalVideoPath: string read FPhysicalVideoPath write FPhysicalVideoPath;
 
+      property Color: TColor read fColor write fColor;
+
       function CalculateMd5( const aFileName: string ): string;
       function CalculateSha1( const aFileName: string ): string;
       function CalculateCrc32( const aFileName: string ): string;
@@ -111,6 +115,7 @@ constructor TGame.Create( aPath, aName, aDescription, aImagePath, aVideoPath,
                           aRating, aDeveloper, aPublisher, aGenre, aPlayers, aDate,
                           aRegion, aPlaycount, aLastplayed, aKidGame, aHidden, aFavorite: string );
 begin
+  fColor := -1;
    Load( aPath, aName, aDescription, aImagePath, aVideoPath, aRating,
          aDeveloper, aPublisher, aGenre, aPlayers, aDate, aRegion, aPlaycount,
          aLastplayed, aKidGame, aHidden, aFavorite );

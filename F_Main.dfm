@@ -1031,7 +1031,6 @@ object Frm_Editor: TFrm_Editor
     Align = alClient
     BevelOuter = bvNone
     TabOrder = 0
-    ExplicitHeight = 849
     object Pgc_Editor: TPageControl
       Left = 0
       Top = 0
@@ -1039,10 +1038,15 @@ object Frm_Editor: TFrm_Editor
       Height = 792
       ActivePage = Tbs_Main
       Align = alClient
+      Font.Charset = DEFAULT_CHARSET
+      Font.Color = clMedGray
+      Font.Height = -11
+      Font.Name = 'Tahoma'
+      Font.Style = []
       MultiLine = True
+      ParentFont = False
       TabOrder = 0
       TabPosition = tpRight
-      ExplicitHeight = 849
       object Tbs_Main: TTabSheet
         Caption = 'Game'
         Font.Charset = DEFAULT_CHARSET
@@ -1061,7 +1065,6 @@ object Frm_Editor: TFrm_Editor
           BarColor = clRed
           TabOrder = 0
           Visible = False
-          ExplicitTop = 824
         end
         object pSystemControls: TPanel
           Left = 0
@@ -1071,7 +1074,6 @@ object Frm_Editor: TFrm_Editor
           Align = alLeft
           Caption = 'pSystemControls'
           TabOrder = 1
-          ExplicitHeight = 824
           object Lbx_Games: TListBox
             AlignWithMargins = True
             Left = 5
@@ -1082,15 +1084,22 @@ object Frm_Editor: TFrm_Editor
             Margins.Top = 4
             Margins.Right = 4
             Margins.Bottom = 4
+            Style = lbOwnerDrawVariable
             Align = alClient
-            DoubleBuffered = True
+            DoubleBuffered = False
+            Font.Charset = DEFAULT_CHARSET
+            Font.Color = clCream
+            Font.Height = -11
+            Font.Name = 'Tahoma'
+            Font.Style = []
             ItemHeight = 13
             MultiSelect = True
             ParentDoubleBuffered = False
-            Sorted = True
+            ParentFont = False
+            PopupMenu = pmGameList
             TabOrder = 0
             OnClick = Lbx_GamesClick
-            ExplicitHeight = 545
+            OnDrawItem = Lbx_GamesDrawItem
           end
           object Edt_RomPath: TEdit
             AlignWithMargins = True
@@ -1106,7 +1115,6 @@ object Frm_Editor: TFrm_Editor
             Enabled = False
             ReadOnly = True
             TabOrder = 1
-            ExplicitTop = 798
           end
           object pSystems: TPanel
             Left = 1
@@ -1256,7 +1264,6 @@ object Frm_Editor: TFrm_Editor
           Height = 767
           Align = alClient
           TabOrder = 2
-          ExplicitHeight = 824
           object Pgc_Media: TPageControl
             AlignWithMargins = True
             Left = 5
@@ -1279,9 +1286,6 @@ object Frm_Editor: TFrm_Editor
             TabOrder = 0
             TabPosition = tpBottom
             OnChange = Pgc_MediaChange
-            ExplicitLeft = 6
-            ExplicitTop = 1
-            ExplicitHeight = 384
             object Tbs_Picture: TTabSheet
               Caption = 'Picture'
               object Img_Game: TImage
@@ -9963,9 +9967,6 @@ object Frm_Editor: TFrm_Editor
             Height = 375
             Align = alBottom
             TabOrder = 1
-            ExplicitLeft = 6
-            ExplicitTop = 395
-            ExplicitWidth = 484
             object Lbl_Name: TLabel
               Left = 9
               Top = 5
@@ -17853,6 +17854,66 @@ object Frm_Editor: TFrm_Editor
           TabOrder = 8
         end
       end
+      object tsGameList: TTabSheet
+        Caption = 'Game List'
+        ImageIndex = 2
+        object lbRoms: TListBox
+          Left = 265
+          Top = 0
+          Width = 265
+          Height = 784
+          Align = alLeft
+          ItemHeight = 13
+          MultiSelect = True
+          TabOrder = 0
+        end
+        object bScanFolder: TButton
+          Left = 535
+          Top = 40
+          Width = 121
+          Height = 33
+          Caption = 'Scan Folder'
+          TabOrder = 1
+          OnClick = bScanFolderClick
+        end
+        object leROMext: TLabeledEdit
+          Left = 535
+          Top = 17
+          Width = 121
+          Height = 21
+          EditLabel.Width = 42
+          EditLabel.Height = 13
+          EditLabel.Caption = 'ROM ext'
+          TabOrder = 2
+          Text = '*.zip'
+        end
+        object mLog: TMemo
+          Left = 672
+          Top = 0
+          Width = 185
+          Height = 577
+          TabOrder = 3
+        end
+        object lbListRoms: TListBox
+          Left = 0
+          Top = 0
+          Width = 265
+          Height = 784
+          Align = alLeft
+          ItemHeight = 13
+          TabOrder = 4
+          ExplicitLeft = 8
+        end
+        object bAddToList: TButton
+          Left = 536
+          Top = 80
+          Width = 120
+          Height = 33
+          Caption = 'Add To List'
+          TabOrder = 5
+          OnClick = bAddToListClick
+        end
+      end
     end
   end
   object XMLDoc: TXMLDocument
@@ -17993,6 +18054,11 @@ object Frm_Editor: TFrm_Editor
           AutoCheck = True
           Caption = 'Use Genesis logo'
           OnClick = Mnu_GenesisClick
+        end
+        object Mnu_AutoLoadOnStart: TMenuItem
+          Caption = 'Auto Load On Start'
+          Checked = True
+          OnClick = Mnu_AutoLoadOnStartClick
         end
       end
       object N3: TMenuItem
@@ -18339,5 +18405,49 @@ object Frm_Editor: TFrm_Editor
     UserAgent = 'Embarcadero URI Client/1.0'
     Left = 376
     Top = 152
+  end
+  object pmGameList: TPopupMenu
+    Left = 21
+    Top = 213
+    object pm_ScanForROMs: TMenuItem
+      Caption = 'Scan for ROMs'
+      OnClick = pm_ScanForROMsClick
+    end
+    object pm_RemoveFromList: TMenuItem
+      Caption = 'Remove from list'
+      OnClick = pm_RemoveFromListClick
+    end
+    object pm_FindImage: TMenuItem
+      Caption = 'Find Image'
+    end
+    object pm_FindVideo: TMenuItem
+      Caption = 'Find Video'
+    end
+    object pm_SaveGameList: TMenuItem
+      Caption = 'Save GameList'
+      OnClick = pm_SaveGameListClick
+    end
+  end
+  object alMain: TActionList
+    Left = 69
+    Top = 213
+    object aViewGame: TAction
+      Category = 'UI'
+      Caption = 'aViewGame'
+      ShortCut = 112
+      OnExecute = aViewGameExecute
+    end
+    object aViewScraper: TAction
+      Category = 'UI'
+      Caption = 'aViewScraper'
+      ShortCut = 113
+      OnExecute = aViewScraperExecute
+    end
+    object aViewGameLists: TAction
+      Category = 'UI'
+      Caption = 'aViewGameLists'
+      ShortCut = 122
+      OnExecute = aViewGameListsExecute
+    end
   end
 end
