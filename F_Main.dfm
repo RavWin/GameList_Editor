@@ -18446,7 +18446,7 @@ object Frm_Editor: TFrm_Editor
     object aViewGameLists: TAction
       Category = 'UI'
       Caption = 'aViewGameLists'
-      ShortCut = 122
+      ShortCut = 114
       OnExecute = aViewGameListsExecute
     end
   end

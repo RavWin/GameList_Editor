@@ -1473,11 +1473,10 @@ begin
       Canvas.Brush.Color := clHighlight;
 
     Canvas.FillRect(Rect);
-//    Canvas.TextOut(Rect.Left + 2, Rect.Top, Items[Index]);
-    if odFocused In State then begin
+//    if odFocused In State then begin
 //      Canvas.Brush.Color := Lbx_Games.Color;
 //      Canvas.DrawFocusRect(Rect);
-    end;
+//    end;
     Canvas.TextOut(Rect.Left + 2, Rect.Top, Items[Index]);
   end;
 end;
