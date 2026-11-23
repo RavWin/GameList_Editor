@@ -72,3 +72,6 @@ Win32/
 #Translation files (unconverted)
 *.po
 /Win64
+GPATH
+GTAGS
+GRTAGS
