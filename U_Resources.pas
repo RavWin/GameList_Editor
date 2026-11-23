@@ -420,6 +420,7 @@ const
    Cst_IniProxyPort = 'ProxyPort';
    Cst_IniProxyUse = 'ProxyUse';
    Cst_IniRootFolder = 'RootFolder';
+   Cst_IniSystem = 'SelectedSystem';   // Last Selected System (Folder Name)
    Cst_IniAutoLoadOnStart = 'AutoLoadOnStart';  // Auto Load Last Root Folder on start
 
    Cst_GenesisLogoName = 'genesis.png';

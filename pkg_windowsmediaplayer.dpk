@@ -1,7 +1,6 @@
 package pkg_windowsmediaplayer;
 
 {$R *.res}
-{$R '..\..\22.0\Imports\WMPLib_TLB.dcr'}
 {$IFDEF IMPLICITBUILDING This IFDEF should not be used by users}
 {$ALIGN 8}
 {$ASSERTIONS ON}
@@ -34,6 +33,6 @@ requires
   vcl;
 
 contains
-  WMPLib_TLB in '..\..\22.0\Imports\WMPLib_TLB.pas';
+  WMPLib_TLB in 'WMPLib_TLB.pas';
 
 end.

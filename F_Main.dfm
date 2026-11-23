@@ -1288,6 +1288,7 @@ object Frm_Editor: TFrm_Editor
             OnChange = Pgc_MediaChange
             object Tbs_Picture: TTabSheet
               Caption = 'Picture'
+              PopupMenu = pmPicture
               object Img_Game: TImage
                 Left = 0
                 Top = 0
@@ -5599,6 +5600,7 @@ object Frm_Editor: TFrm_Editor
             object Tbs_Video: TTabSheet
               Caption = 'Video'
               ImageIndex = 1
+              PopupMenu = pmVideo
               object Img_BackgroundVideo: TImage
                 Left = 0
                 Top = 0
@@ -17902,7 +17904,6 @@ object Frm_Editor: TFrm_Editor
           Align = alLeft
           ItemHeight = 13
           TabOrder = 4
-          ExplicitLeft = 8
         end
         object bAddToList: TButton
           Left = 536
@@ -18423,9 +18424,43 @@ object Frm_Editor: TFrm_Editor
     object pm_FindVideo: TMenuItem
       Caption = 'Find Video'
     end
+    object pm_ChangeAllPictures: TMenuItem
+      Caption = 'Change all missing pictures to default'
+      OnClick = Btn_ChangeAllClick
+    end
     object pm_SaveGameList: TMenuItem
       Caption = 'Save GameList'
       OnClick = pm_SaveGameListClick
+    end
+  end
+  object pmPicture: TPopupMenu
+    OnPopup = pmPicturePopup
+    Left = 21
+    Top = 245
+    object pm_ChangeImage: TMenuItem
+      Caption = 'Change Picture'
+      OnClick = Btn_ChangeImageClick
+    end
+    object pm_SetDefaultPicture: TMenuItem
+      Caption = 'Change Picture to default'
+      OnClick = Btn_SetDefaultPictureClick
+    end
+    object pm_RemovePicture: TMenuItem
+      Caption = 'Delete Picture'
+      OnClick = Btn_RemovePictureClick
+    end
+  end
+  object pmVideo: TPopupMenu
+    OnPopup = pmVideoPopup
+    Left = 69
+    Top = 245
+    object pm_ChangeVideo: TMenuItem
+      Caption = 'Change Video'
+      OnClick = Btn_ChangeVideoClick
+    end
+    object pm_RemoveVideo: TMenuItem
+      Caption = 'Delete Video'
+      OnClick = Btn_RemoveVideoClick
     end
   end
   object alMain: TActionList

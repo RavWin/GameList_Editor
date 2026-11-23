@@ -1,4 +1,4 @@
-unit F_Main;
+ï»¿unit F_Main;
 
 interface
 
@@ -215,6 +215,14 @@ type
     pm_SaveGameList: TMenuItem;
     Mnu_AutoLoadOnStart: TMenuItem;
     pm_ScanForROMs: TMenuItem;
+    pmPicture: TPopupMenu;
+    pmVideo: TPopupMenu;
+    pm_ChangeImage: TMenuItem;
+    pm_SetDefaultPicture: TMenuItem;
+    pm_ChangeAllPictures: TMenuItem;
+    pm_RemovePicture: TMenuItem;
+    pm_ChangeVideo: TMenuItem;
+    pm_RemoveVideo: TMenuItem;
 
       procedure FormCreate(Sender: TObject);
       procedure FormDestroy(Sender: TObject);
@@ -289,12 +297,15 @@ type
     procedure pm_SaveGameListClick(Sender: TObject);
     procedure Mnu_AutoLoadOnStartClick(Sender: TObject);
     procedure pm_ScanForROMsClick(Sender: TObject);
+    procedure pmPicturePopup(Sender: TObject);
+    procedure pmVideoPopup(Sender: TObject);
 
    private
 
       FThemeNumber, FLanguage: Integer;
       FRootPath: string;
       FCurrentFolder: string;
+      FSelectedSystem: string;
       FImageFolder: string;
       FVideoFolder: string;
       FVideoScrapeLink: string;
@@ -358,7 +369,8 @@ type
       function GetCurrentLogoName: string;
       function GetCurrentSystemId: string;
       function GetCountryEnum( const aShortName: string ): TCountryName;
-      function BuildGamesList( const aPathToFile: string ): TObjectList<TGame>;
+      function BuildGamesList( const aPathToFile: string; aProgress: Boolean = False ): TObjectList<TGame>;
+      function CountGamesInFile( const aPathToFile: string ): Integer;
       function FormatDateFromString( const aDate: string; aIso: Boolean = False ): string;
       function GetThemeEnum( aNumber: Integer ): TThemeName;
       function GetLangEnum( aNumber: Integer ): TLangName;
@@ -367,7 +379,7 @@ type
       function MyMessageDlg( const Msg: string; DlgTypt: TmsgDlgType; button: TMsgDlgButtons;
                             Caption: array of string; dlgcaption: string ): Integer;
 
-      //Méthodes relatives à l'onglet de scrape
+      //Mï¿½thodes relatives ï¿½ l'onglet de scrape
       procedure ClearScrapeMedia;
       procedure ParseXml;
       procedure DisplayPictures;
@@ -387,6 +399,7 @@ type
       procedure FindGameRoms( const aSystem: string );
       procedure SaveGamelist(const FileName: string; aGameList: TObjectList<TGame>);
       procedure AddRomList(aRoms: TStrings);
+      procedure WMAutoLoad( var Msg: TMessage ); message WM_APP + 1;
 
 
    public
@@ -402,7 +415,7 @@ type
 
 var
    Frm_Editor: TFrm_Editor;
-   //lock pour le compteur de threads (empêche l'accés concurrent)
+   //lock pour le compteur de threads (empï¿½che l'accï¿½s concurrent)
    CounterGuard: TCriticalSection;
 
 implementation
@@ -439,7 +452,7 @@ begin
    end;
 end;
 
-//Formate correctement la date depuis la string récupérée du xml
+//Formate correctement la date depuis la string rï¿½cupï¿½rï¿½e du xml
 //ou renvoie une date format Iso pour sauvegarde selon l'appel (aIso)
 function TFrm_Editor.FormatDateFromString( const aDate: string; aIso: Boolean = False ): string;
 var
@@ -449,8 +462,8 @@ begin
    FullStr:= aDate;
    Result:= '';
 
-   //si on formate pour affichage et que la chaine passée
-   //répond au critère
+   //si on formate pour affichage et que la chaine passï¿½e
+   //rï¿½pond au critï¿½re
    if ( not aIso ) and ( FullStr.Contains( Cst_DateSuffix ) ) then begin
       SetLength( FullStr, 8 );
       Day:= Copy( FullStr, 7, 2 );
@@ -467,18 +480,18 @@ begin
       //et que la chaine ne contient que des chiffres ou /
    end else if aIso and ( TRegEx.IsMatch( FullStr, '^[0-9]' ) ) then begin
 
-      //si la chaine fait 4 caractères de long
+      //si la chaine fait 4 caractï¿½res de long
       if ( Length( FullStr) = 4 ) then
          Result:= FullStr + Cst_DateLongFill + Cst_DateSuffix;
 
-      //si la chaine fait 7 caractères de long
+      //si la chaine fait 7 caractï¿½res de long
       if ( Length( FullStr) = 7 ) then begin
          Month:= Copy( FullStr, 1, 2 );
          Year:= Copy( FullStr, 4, 4 );
          Result:= Year + Month + Cst_DateShortFill + Cst_DateSuffix;
       end;
 
-      //si la chaine fait 10 caractères de long
+      //si la chaine fait 10 caractï¿½res de long
       if ( Length( FullStr) = 10 ) then begin
          Day:= Copy( FullStr, 1, 2 );
          Month:= Copy( FullStr, 4, 2 );
@@ -512,14 +525,14 @@ begin
    Result:= aMsgdlg.Showmodal;
 end;
 
-//Chargement des paramètres depuis le fichier INI
+//Chargement des paramï¿½tres depuis le fichier INI
 procedure TFrm_Editor.LoadFromIni;
 var
    FileIni: TIniFile;
 begin
    FileIni:= TIniFile.Create( ExtractFilePath( Application.ExeName ) + Cst_IniFilePath );
    try
-      //On tent de lire les fichier ini, si on ne trouve pas on met tout à false par défaut
+      //On tent de lire les fichier ini, si on ne trouve pas on met tout ï¿½ false par dï¿½faut
       FGodMode:= FileIni.ReadBool( Cst_IniOptions, Cst_IniGodMode, False );
       Mnu_GodMode.Checked:= FGodMode;
       Mnu_DeleteWoPrompt.Enabled:= FGodMode;
@@ -557,13 +570,14 @@ begin
       FProxyUse:= FileIni.ReadBool( Cst_IniOptions, Cst_IniProxyUse, False);
 
       FRootPath:= FileIni.ReadString( Cst_IniOptions, Cst_IniRootFolder, '');
+      FSelectedSystem:= FileIni.ReadString( Cst_IniOptions, Cst_IniSystem, '');
       FAutoLoadOnStart := FileIni.ReadBool( Cst_IniOptions, Cst_IniAutoLoadOnStart, True);
    finally
       FileIni.Free;
    end;
 end;
 
-//Enregistrement des paramètres dans le fichier INI
+//Enregistrement des paramï¿½tres dans le fichier INI
 procedure TFrm_Editor.SaveToIni;
 var
    FileIni: TIniFile;
@@ -591,6 +605,7 @@ begin
       FileIni.WriteString( Cst_IniOptions, Cst_IniProxyPwd, FProxyPwd);
       FileIni.WriteString( Cst_IniOptions, Cst_IniProxyServer, FProxyServer);
       FileIni.WriteString( Cst_IniOptions, Cst_IniRootFolder, FRootPath);
+      FileIni.WriteString( Cst_IniOptions, Cst_IniSystem, FSelectedSystem);
       if ( FProxyPort.IsEmpty ) then FileIni.WriteString( Cst_IniOptions, Cst_IniProxyPort, '0' )
       else FileIni.WriteString( Cst_IniOptions, Cst_IniProxyPort, FProxyPort );
       FileIni.WriteBool( Cst_IniOptions, Cst_IniProxyUse, FProxyUse);
@@ -628,7 +643,7 @@ begin
    end;
 end;
 
-//Recup l'énum du pays (région) du jeu scrapé
+//Recup l'ï¿½num du pays (rï¿½gion) du jeu scrapï¿½
 function TFrm_Editor.GetCountryEnum( const aShortName: string ): TCountryName;
 var
    _CountryName: TCountryName;
@@ -692,7 +707,7 @@ begin
    end;
 end;
 
-//Met le focus sur le combo system à l'affichage de la fenêtre
+//Puts the focus on the combo system and the window display
 procedure TFrm_Editor.FormShow(Sender: TObject);
 var
    Frm_Help: TFrm_Help;
@@ -703,7 +718,7 @@ begin
    CheckMenuItem( Succ( FThemeNumber ) );
    CheckMenuItem( Succ( FLanguage ), True );
    if FShowTips then begin
-      //Affiche la fenêtre "Help"
+      //Affiche la fenï¿½tre "Help"
       Frm_Help:= TFrm_Help.Create(nil);
       try
          FShowTips:= Frm_Help.Execute( not FShowTips );
@@ -717,13 +732,24 @@ begin
      OpenDialog.FileName := FRootPath;
      Img_BackGround.Visible:= True;
      Lbx_Games.Items.Clear;
-     BuildSystemsList(true);
-     Btn_SaveChanges.Enabled:= False;
+     //On diffÃ¨re le chargement jusqu'aprÃ¨s l'affichage de la fenÃªtre,
+     //sinon la barre de progression ne serait pas visible pendant la charge
+     PostMessage( Handle, WM_APP + 1, 0, 0 );
    end;
    Lbx_Games.SetFocus;
 end;
 
-//Pour checker le menuitem du numéro de thème ou langue récupéré depuis le fichier ini
+//Handler du chargement diffÃ©rÃ© : dÃ©clenchÃ© aprÃ¨s l'affichage de la fenÃªtre,
+//donc la barre de progression est visible pendant la charge
+procedure TFrm_Editor.WMAutoLoad( var Msg: TMessage );
+begin
+   //On laisse la fenÃªtre se dessiner une premiÃ¨re fois
+   Application.ProcessMessages;
+   BuildSystemsList( True );
+   Btn_SaveChanges.Enabled:= False;
+end;
+
+//Pour checker le menuitem du numï¿½ro de thï¿½me ou langue rï¿½cupï¿½rï¿½ depuis le fichier ini
 procedure TFrm_Editor.CheckMenuItem( aNumber: Integer; aLang: Boolean = False );
 var
    _MenuItem: TMenuItem;
@@ -761,8 +787,8 @@ begin
    Btn_SaveChanges.Enabled:= False;
 end;
 
-//permet d'éxecuter la ligne de commande qui stop/start Emulation Station
-//utilisé si on accède aux gamelist directement sur le Pi sinon les modifs ne
+//permet d'ï¿½xecuter la ligne de commande qui stop/start Emulation Station
+//utilisï¿½ si on accï¿½de aux gamelist directement sur le Pi sinon les modifs ne
 //sont pas prises en compte. Utilise le petit utilitaire plink.exe
 procedure TFrm_Editor.StopOrStartES( aStop, aRecal: Boolean );
 var
@@ -790,22 +816,24 @@ begin
    end;
 end;
 
-//Construction de la liste des systèmes trouvés (et des listes de jeux associées)
+//Construction de la liste des systï¿½mes trouvï¿½s (et des listes de jeux associï¿½es)
 procedure TFrm_Editor.BuildSystemsList( aReload : Boolean = False );
 var
    _GameListPath: string;
    Info: TSearchRec;
    IsFound: Boolean;
    ValidFolderCount: Integer;
-   TmpList: TObjectList<TGame>;
+   _TotalGamesCount: Integer;
+TmpList: TObjectList<TGame>;
    _system: TSystemKindObject;
+   ii: Integer;
 begin
-   //on met à vide le chemin de base et le logo systeme
+   //on met ï¿½ vide le chemin de base et le logo systeme
    //FRootPath:= '';
    Img_System.Picture.Graphic:= nil;
 
-   //On vide le combobox des systèmes
-   //Et on désactive les Controls non nécessaires
+   //On vide le combobox des systï¿½mes
+   //Et on dï¿½sactive les Controls non nï¿½cessaires
    Cbx_Systems.Items.Clear;
    Cbx_Systems.Enabled:= False;
    Cbx_Filter.Enabled:= False;
@@ -818,17 +846,17 @@ begin
    Cbx_Favorite.ItemIndex:= -1;
    Edt_Search.Text:= '';
 
-   //On vide la liste globale des systèmes (cas 2eme ouverture)
+   //On vide la liste globale des systï¿½mes (cas 2eme ouverture)
    GSystemList.Clear;
 
-   //On met le compteur de dossiers valides à 0
+   //On met le compteur de dossiers valides ï¿½ 0
    ValidFolderCount:= 0;
 
-   //On sélectionne le dossier parent où se trouvent les dossiers de systèmes
+   //On sï¿½lectionne le dossier parent oï¿½ se trouvent les dossiers de systï¿½mes
    if ( not aReload ) then begin
       Mnu_Reload.Enabled:= False;
       if ( OpenDialog.Execute ) then
-         //On récupère le chemin vers le dossier parent
+         //On rï¿½cupï¿½re le chemin vers le dossier parent
          FRootPath:= IncludeTrailingPathDelimiter( OpenDialog.FileName )
       else
          Exit;
@@ -843,11 +871,37 @@ begin
       Exit;
    end;
 
-   //On boucle sur les dossiers trouvés pour les lister
+   //Premier passage : on compte le nombre total de jeux dans tous les
+   //gamelist.xml valides afin d'afficher une barre de progression prï¿½cise
+   _TotalGamesCount:= 0;
+   while IsFound do begin
+      if ( (Info.Attr and faDirectory) <> 0 ) and
+         ( Info.Name[1] <> '.' ) and
+         ( FileExists( FRootPath + IncludeTrailingPathDelimiter( Info.Name ) +
+                       Cst_GameListFileName ) ) then
+         _TotalGamesCount:= _TotalGamesCount +
+                           CountGamesInFile( FRootPath + IncludeTrailingPathDelimiter( Info.Name ) +
+                                             Cst_GameListFileName );
+      IsFound:= ( FindNext(Info) = 0 );
+   end;
+   FindClose(Info);
+
+   //On configure et affiche la barre de progression pour le chargement
+   Screen.Cursor:= crHourGlass;
+   ProgressBar.Visible:= True;
+   ProgressBar.Max:= _TotalGamesCount;
+   ProgressBar.Position:= 0;
+
+   //On force la fenÃªtre Ã  se redessiner avant de lancer le chargement,
+   //sinon la barre de progression ne serait pas visible pendant le travail
+   Application.ProcessMessages;
+
+   //On boucle sur les dossiers trouvï¿½s pour les lister
+   IsFound:= ( FindFirst( FRootPath + '*.*', faAnyFile, Info) = 0 );
    while IsFound do begin
 
-      //Si le dossier trouvé ne commence pas par un . et qu'il contient
-      //bien un fichier gamelist.xml alors on crée la liste de jeux
+      //Si le dossier trouvï¿½ ne commence pas par un . et qu'il contient
+      //bien un fichier gamelist.xml alors on crï¿½e la liste de jeux
       if ( (Info.Attr and faDirectory) <> 0 ) and
          ( Info.Name[1] <> '.' ) and
          ( FileExists( FRootPath + IncludeTrailingPathDelimiter( Info.Name ) +
@@ -856,20 +910,20 @@ begin
          //on chope le nom du dossier en cours pour construire les chemins
          FCurrentFolder:= IncludeTrailingPathDelimiter( Info.Name );
 
-         //Ici on récupère le chemin vers le fichier gamelist.xml
+         //Ici on rï¿½cupï¿½re le chemin vers le fichier gamelist.xml
          _GameListPath:= FRootPath + FCurrentFolder + Cst_GameListFileName;
 
          //On tente de construire la liste des jeux depuis le .xml
-         TmpList:= BuildGamesList( _GameListPath );
+         TmpList:= BuildGamesList( _GameListPath, True );
 
          //Si la liste n'est pas vide, on traite, sinon on zappe
          if Assigned( TmpList ) then begin
 
-            //On construit la liste des jeux du système
-            //et on joute le système à la liste globale de systèmes
+            //On construit la liste des jeux du systï¿½me
+            //et on joute le systï¿½me ï¿½ la liste globale de systï¿½mes
             GSystemList.Add( Info.Name, TmpList );
 
-            //On ajoute ensuite le nom du systeme au combobox des systemes trouvés
+            //On ajoute ensuite le nom du systeme au combobox des systemes trouvï¿½s
             _system:= TSystemKindObject.Create( Info.Name );
             if ( _system.FSystemKind = skOther ) then
                Cbx_Systems.Items.AddObject( Info.Name, _system )
@@ -878,7 +932,7 @@ begin
             else
                Cbx_Systems.Items.AddObject( Cst_SystemKindStr[_system.FSystemKind], _system );
 
-            //On incrémente le compteur de dossier système valides
+            //On incrï¿½mente le compteur de dossier systï¿½me valides
             Inc( ValidFolderCount );
          end;
       end;
@@ -888,18 +942,22 @@ begin
    end;
    FindClose(Info);
 
-   //Si le compteur de dossier valide est à zéro, message utilisateur
+   //On masque la barre de progression une fois tout chargï¿½
+   ProgressBar.Visible:= False;
+   Screen.Cursor:= crDefault;
+
+   //Si le compteur de dossier valide est ï¿½ zï¿½ro, message utilisateur
    if ( ValidFolderCount = 0 ) then begin
       ShowMessage( Rst_WrongFolder );
       Screen.Cursor:= crDefault;
       Exit;
 
-      //On active le Combobox des systemes si au moins un systeme a été trouvé
-      //Idem pour le listbox des jeux du systeme et on charge la liste du premier système
+      //On active le Combobox des systemes si au moins un systeme a ï¿½tï¿½ trouvï¿½
+      //Idem pour le listbox des jeux du systeme et on charge la liste du premier systï¿½me
    end else begin
 
-      //si le dossier sélectionné se trouve sur le Pi,
-      //on prévient l'utilisateur qu'on va stopper ES
+      //si le dossier sï¿½lectionnï¿½ se trouve sur le Pi,
+      //on prï¿½vient l'utilisateur qu'on va stopper ES
       FFolderIsOnPi:= FRootPath.StartsWith( Cst_Recalbox ) or
                       FRootPath.StartsWith( Cst_Retropie );
 
@@ -920,7 +978,21 @@ begin
       Lbl_SelectSystem.Enabled:= Cbx_Systems.Enabled;
       Cbx_Filter.Enabled:= Cbx_Systems.Enabled;
       Lbl_Filter.Enabled:= Cbx_Systems.Enabled;
+      //On restaure le dernier systï¿½me sï¿½lectionnï¿½ si trouvï¿½ dans la liste,
+      //sinon on retombe sur le premier systï¿½me de la liste
       Cbx_Systems.ItemIndex:= 0;
+      for ii:= 0 to Pred( Cbx_Systems.Items.Count ) do begin
+         _system:= TSystemKindObject( Cbx_Systems.Items.Objects[ii] );
+         if ( _system.FSystemKind = skOther ) then begin
+            if ( Cbx_Systems.Items[ii] = FSelectedSystem ) then begin
+               Cbx_Systems.ItemIndex:= ii;
+               Break;
+            end;
+         end else if ( Cst_SystemKindFolderNames[_system.FSystemKind] = FSelectedSystem ) then begin
+            Cbx_Systems.ItemIndex:= ii;
+            Break;
+         end;
+      end;
       EnableControls( True );
       Cbx_Filter.ItemIndex:= 0;
       Edt_Search.Enabled:= True;
@@ -928,15 +1000,15 @@ begin
       LoadGamesList( getCurrentFolderName );
       Mnu_Reload.Enabled:= True;
 
-      //On remet le curseur par défaut
+      //On remet le curseur par dï¿½faut
       Screen.Cursor:= crDefault;
    end;
 end;
 
-//Construction de la liste des jeux (objets) pour un systeme donné
-function TFrm_Editor.BuildGamesList( const aPathToFile: string ): TObjectList<TGame>;
+//Construction de la liste des jeux (objets) pour un systeme donnï¿½
+function TFrm_Editor.BuildGamesList( const aPathToFile: string; aProgress: Boolean = False ): TObjectList<TGame>;
 
-   //Permet de s'assurer que le noeud cherché existe, et si ce n'est pas le cas
+   //Permet de s'assurer que le noeud cherchï¿½ existe, et si ce n'est pas le cas
    //renvoie chaine vide, sinon renvoie la valeur texte du noeud
    function GetNodeValue( aNode: IXMLNode; const aNodeName: string ): string;
    begin
@@ -950,10 +1022,10 @@ var
    _Game: TGame;
    _Node: IXmlNode;
 begin
-   //on met le curseur sablier pour montrer que ça bosse.
+   //on met le curseur sablier pour montrer que ï¿½a bosse.
    Screen.Cursor:= crHourGlass;
 
-   //Initialisation à nil au cas où liste de jeux vide
+   //Initialisation ï¿½ nil au cas oï¿½ liste de jeux vide
    Result:= nil;
 
    //On ouvre et active le gamelist.xml pour le parcourir
@@ -963,19 +1035,22 @@ begin
    //On cherche le premier "jeu"
    _Node := XMLDoc.DocumentElement.ChildNodes.FindNode( Cst_Game );
 
-   //Si pas de jeu trouvé on sort et on renvoie nil
-   if not Assigned( _Node ) then Exit;
+   //Si pas de jeu trouvï¿½ on sort et on renvoie nil
+   if not Assigned( _Node ) then begin
+      XMLDoc.Active:= False;
+      Exit;
+   end;
 
-   //On crée la liste d'objets TGame
+   //On crï¿½e la liste d'objets TGame
    _GameList:= TObjectList<TGame>.Create( True );
 
    //Ensuite on boucle sur tous les jeux et pour chaque jeu
-   //on crée un objet TGame qu'on renseigne et ajoute à la _Gamelist
+   //on crï¿½e un objet TGame qu'on renseigne et ajoute ï¿½ la _Gamelist
    repeat
-      //On ne crée un "jeu" que si le noeud n'est pas vide.
+      //On ne crï¿½e un "jeu" que si le noeud n'est pas vide.
       if _Node.HasChildNodes then begin
 
-         //Création de l'objet TGame et passage des infos en argument
+         //Crï¿½ation de l'objet TGame et passage des infos en argument
          _Game:= TGame.Create( GetNodeValue( _Node, Cst_Path ),
                                GetNodeValue( _Node, Cst_Name ),
                                GetNodeValue( _Node,Cst_Description ),
@@ -999,8 +1074,14 @@ begin
          _Game.PhysicalVideoPath:= GetPhysicalMediaPath( _Game.VideoPath );
          _Game.IsOrphan:= not FileExists( _Game.PhysicalRomPath );
 
-         //On ajoute à la _Gamelist
+         //On ajoute ï¿½ la _Gamelist
          _GameList.Add( _Game );
+      end;
+
+      //On avance la barre de progression d'un cran si demandï¿½
+      if aProgress then begin
+         ProgressBar.Position:= ProgressBar.Position + 1;
+         Application.ProcessMessages;
       end;
 
       //On passe au jeu suivant
@@ -1012,15 +1093,36 @@ begin
    Result:= _GameList;
 end;
 
-//Action à la sélection d'un filtre
+//Compte le nombre de noeuds "game" dans un gamelist.xml sans construire d'objets
+//(utilisï¿½ pour dimensionner la barre de progression lors de l'ouverture du dossier)
+function TFrm_Editor.CountGamesInFile( const aPathToFile: string ): Integer;
+var
+   _Node: IXmlNode;
+begin
+   Result:= 0;
+   XMLDoc.FileName:= aPathToFile;
+   XMLDoc.Active:= True;
+   try
+      _Node:= XMLDoc.DocumentElement.ChildNodes.FindNode( Cst_Game );
+      while Assigned( _Node ) do begin
+         Inc( Result );
+         _Node:= _Node.NextSibling;
+      end;
+   finally
+      XMLDoc.Active:= False;
+   end;
+end;
+
+//Action ï¿½ la sï¿½lection d'un filtre
 procedure TFrm_Editor.Cbx_FilterChange(Sender: TObject);
 begin
    LoadGamesList( getCurrentFolderName );
 end;
 
-//Action à la sélection d'un item du combobox systemes
+//Action ï¿½ la sï¿½lection d'un item du combobox systemes
 procedure TFrm_Editor.Cbx_SystemsChange(Sender: TObject);
 begin
+   FSelectedSystem:= getCurrentFolderName;
    EmptyScrapeFields;
    Edt_Search.Text:= '';
    LoadGamesList( getCurrentFolderName );
@@ -1032,8 +1134,8 @@ begin
    LoadGamesList( getCurrentFolderName );
 end;
 
-//Je fais une procédure juste pour activer les controls
-//pour pas se les retaper à chaque changement d'état
+//Je fais une procï¿½dure juste pour activer les controls
+//pour pas se les retaper ï¿½ chaque changement d'ï¿½tat
 procedure TFrm_Editor.EnableControls( aValue: Boolean );
 begin
    Lbl_Name.Enabled:= aValue;
@@ -1057,6 +1159,14 @@ begin
    Btn_SetDefaultPicture.Enabled:= aValue;
    Btn_MoreInfos.Enabled:= aValue;
    Btn_Delete.Enabled:= aValue;
+
+   //On synchronise l'Ã©tat du menu contextuel des contrÃ´les mÃ©dia
+   pm_ChangeImage.Enabled:= Btn_ChangeImage.Enabled;
+   pm_ChangeVideo.Enabled:= Btn_ChangeVideo.Enabled;
+   pm_RemovePicture.Enabled:= Btn_RemovePicture.Enabled;
+   pm_RemoveVideo.Enabled:= Btn_RemoveVideo.Enabled;
+   pm_SetDefaultPicture.Enabled:= Btn_SetDefaultPicture.Enabled;
+   pm_ChangeAllPictures.Enabled:= Btn_ChangeAll.Enabled;
 
    Mnu_System.Enabled:= aValue or not ( GSystemList.Count = 0 );
    Mnu_Game.Enabled:= aValue and not ( Lbx_Games.Items.Count = 0 );
@@ -1095,7 +1205,7 @@ begin
    CheckIfChangesToSave;
 end;
 
-//On vérifie si il y a des changements pour activer le bouton
+//On vï¿½rifie si il y a des changements pour activer le bouton
 // "Save changes" ou non
 procedure TFrm_Editor.CheckIfChangesToSave;
 var
@@ -1134,10 +1244,10 @@ begin
 
 end;
 
-//Chargement de la liste des jeux d'un système dans le listbox des jeux
+//Chargement de la liste des jeux d'un systï¿½me dans le listbox des jeux
 procedure TFrm_Editor.LoadGamesList( const aSystem: string );
 
-   //permet de récupérer le chemin vers les images (du xml)
+   //permet de rï¿½cupï¿½rer le chemin vers les images (du xml)
    procedure GetImageFolder( aGame: TGame );
    var
       EndPos: Integer;
@@ -1154,8 +1264,8 @@ procedure TFrm_Editor.LoadGamesList( const aSystem: string );
       FVideoFolder:= Copy( aGame.VideoPath, 1, EndPos );
    end;
 
-   //Permet de vérifier si l'image existe "physiquement"
-   //car il se peut que le lien soit renseigné mais que l'image
+   //Permet de vï¿½rifier si l'image existe "physiquement"
+   //car il se peut que le lien soit renseignï¿½ mais que l'image
    //n'existe pas dans le dossier des images...
    function CheckIfFileMissing( const aLink: string ): Boolean;
    begin
@@ -1271,7 +1381,7 @@ begin
    _VideoFolderFound:= False;
    StopGameVideo;
 
-   //On essaye de récupérer la liste de jeux du système choisi
+   //On essaye de rï¿½cupï¿½rer la liste de jeux du systï¿½me choisi
    if GSystemList.TryGetValue( aSystem, _TmpList ) then begin
 
       FormatSettings := TFormatSettings.Create;
@@ -1306,11 +1416,11 @@ begin
       else
          LoadSystemLogo( GetCurrentLogoName );
 
-      //on récupère le nom du dossier de roms chargé
+      //on rï¿½cupï¿½re le nom du dossier de roms chargï¿½
       FCurrentFolder:= IncludeTrailingPathDelimiter( getCurrentFolderName );
 
-      //On désactive les évènements sur les changements dans les champs
-      //Sinon ça pète quand on change de système (indice hors limite)
+      //On dï¿½sactive les ï¿½vï¿½nements sur les changements dans les champs
+      //Sinon ï¿½a pï¿½te quand on change de systï¿½me (indice hors limite)
       FIsLoading:= True;
 
       //On commence par vider le listbox
@@ -1325,7 +1435,7 @@ begin
       //dans le listbox de la liste des jeux
       for _TmpGame in _TmpList do begin
 
-         //Récup du lien vers les images pour ce système (lien xml)
+         //Rï¿½cup du lien vers les images pour ce systï¿½me (lien xml)
          if not ( _TmpGame.ImagePath.IsEmpty ) and
             not _ImageFolderFound then begin
             GetImageFolder( _TmpGame );
@@ -1343,7 +1453,7 @@ begin
             _ParsedGameRating := StrToFloatDef(AdjustDecimalSeparator(_TmpGame.Rating), 0, FormatSettings);
          end;
 
-         //Attention usine à gaz booléenne pour gérer les filtres ^^
+         //Attention usine ï¿½ gaz boolï¿½enne pour gï¿½rer les filtres ^^
          if ( _FilterIndex = 0 ) or
             ( ( _FilterIndex = 1 ) and ( CheckIfFileMissing( _TmpGame.PhysicalImagePath ) ) ) or
             ( ( _FilterIndex = 2 ) and ( CheckIfFileMissing( _TmpGame.PhysicalVideoPath ) ) ) or
@@ -1402,7 +1512,7 @@ begin
             _ROMPathCountMap.Free;
       end;
 
-      //On indique le nombre de jeux trouvés
+      //On indique le nombre de jeux trouvï¿½s
       if Cbx_Filter.ItemIndex = 0 then
          Lbl_NbGamesFound.Caption:= IntToStr( Lbx_Games.Items.Count ) + Rst_GamesFound
       else
@@ -1423,12 +1533,12 @@ begin
          EnableControls( False );
       end;
 
-      //on remet les évènements sur les champs
+      //on remet les ï¿½vï¿½nements sur les champs
       FIsLoading:= False;
    end;
 end;
 
-//Charge le logo du système sélectionné dans le TImage prévu
+//Charge le logo du systï¿½me sï¿½lectionnï¿½ dans le TImage prï¿½vu
 procedure TFrm_Editor.LoadSystemLogo( const aPictureName: string );
 var
    _Image: TPngImage;
@@ -1481,7 +1591,7 @@ begin
   end;
 end;
 
-//Désactivation des composants quand multiselect
+//Dï¿½sactivation des composants quand multiselect
 procedure TFrm_Editor.EnableComponents( aValue: Boolean );
 begin
    Edt_Name.Enabled:= aValue;
@@ -1524,6 +1634,14 @@ begin
    Btn_RemoveVideo.Enabled:= aValue;
    Btn_SetDefaultPicture.Enabled:= aValue;
    Btn_ChangeAll.Enabled:= aValue and ( Cbx_Filter.ItemIndex = 1) and ( Lbx_Games.Items.Count > 0 );
+
+   //On synchronise l'Ã©tat du menu contextuel des contrÃ´les mÃ©dia
+   pm_ChangeImage.Enabled:= Btn_ChangeImage.Enabled;
+   pm_ChangeVideo.Enabled:= Btn_ChangeVideo.Enabled;
+   pm_RemovePicture.Enabled:= Btn_RemovePicture.Enabled;
+   pm_RemoveVideo.Enabled:= Btn_RemoveVideo.Enabled;
+   pm_SetDefaultPicture.Enabled:= Btn_SetDefaultPicture.Enabled;
+   pm_ChangeAllPictures.Enabled:= Btn_ChangeAll.Enabled;
 
    Mnu_Game.Enabled:= aValue;
    Mnu_System.Enabled:= aValue;
@@ -1593,13 +1711,13 @@ begin
      UpdateVideo( ( Lbx_Games.Items.Objects[Lbx_Games.ItemIndex] as TGame ) );
 end;
 
-//Chargement dans les différents champs des infos du jeu sélectionné
+//Chargement dans les diffï¿½rents champs des infos du jeu sï¿½lectionnï¿½
 procedure TFrm_Editor.LoadGame( aGame: TGame );
 var
    _Image: TPngImage;
    _ImageJpg: TJPEGImage;
 begin
-   //on remet les évènements sur les champs
+   //on remet les ï¿½vï¿½nements sur les champs
    FIsLoading:= True;
 
    Img_BackGround.Visible:= True;
@@ -1618,7 +1736,7 @@ begin
    Edt_RomPath.Text:= aGame.RomPath;
    Edt_ScrapeRomPath.Text:= aGame.RomPath;
 
-   //on remet les évènements sur les champs
+   //on remet les ï¿½vï¿½nements sur les champs
    FIsLoading:= False;
 
    UpdateVideo(aGame);
@@ -1667,7 +1785,7 @@ begin
 end;
 
 //Action au click sur bouton "change image"
-//Ouvre une boite de dialogue pour changer l'image du jeu sélectionné
+//Ouvre une boite de dialogue pour changer l'image du jeu sï¿½lectionnï¿½
 procedure TFrm_Editor.Btn_ChangeImageClick(Sender: TObject);
 var
    _Game: TGame;
@@ -1695,7 +1813,7 @@ begin
 end;
 
 //Action au click sur bouton "change picture to default"
-//Change l'image actuelle du jeu sélectionné pour celle par défaut
+//Change l'image actuelle du jeu sï¿½lectionnï¿½ pour celle par dï¿½faut
 procedure TFrm_Editor.Btn_SetDefaultPictureClick(Sender: TObject);
 var
    PathToDefault: string;
@@ -1703,13 +1821,13 @@ var
 begin
    _Game:= ( Lbx_Games.Items.Objects[Lbx_Games.ItemIndex] as TGame );
 
-   //On construit le lien vers l'image défaut selon le système
+   //On construit le lien vers l'image dï¿½faut selon le systï¿½me
    PathToDefault:= ExtractFilePath(Application.ExeName) +
                    Cst_DefaultPicsFolderPath +
                    getCurrentFolderName +
                    Cst_DefaultImageNameSuffix;
 
-   //si l'image defaut du systeme n'existe pas on prend la générique
+   //si l'image defaut du systeme n'existe pas on prend la gï¿½nï¿½rique
    if not FileExists( PathToDefault ) then
       PathToDefault:= ExtractFilePath(Application.ExeName) +
                       Cst_DefaultPicsFolderPath +
@@ -1738,7 +1856,7 @@ begin
 end;
 
 //Action au click "change all missing to default"
-//Assigne l'image defaut du système à tous les jeux qui n'ont pas d'image
+//Assigne l'image defaut du systï¿½me ï¿½ tous les jeux qui n'ont pas d'image
 procedure TFrm_Editor.aViewGameExecute(Sender: TObject);
 begin
   Pgc_Editor.ActivePage := Tbs_Main;
@@ -1783,13 +1901,13 @@ var
    PathToDefault: string;
    _Game: TGame;
 begin
-   //On construit le lien vers l'image défaut selon le système
+   //On construit le lien vers l'image dï¿½faut selon le systï¿½me
    PathToDefault:= ExtractFilePath(Application.ExeName) +
                    Cst_DefaultPicsFolderPath + '\' +
                    getCurrentFolderName +
                    Cst_DefaultImageNameSuffix;
 
-    //si l'image defaut du systeme n'existe pas on prend la générique
+    //si l'image defaut du systeme n'existe pas on prend la gï¿½nï¿½rique
     if not FileExists( PathToDefault ) then
        PathToDefault:= ExtractFilePath(Application.ExeName) +
                        Cst_DefaultPicsFolderPath + '\' +
@@ -1809,7 +1927,7 @@ begin
    Lbx_Games.SetFocus;
 end;
 
-//Remplace l'image actuelle du jeu (par autre ou défaut).
+//Remplace l'image actuelle du jeu (par autre ou dï¿½faut).
 procedure TFrm_Editor.ChangeImage( const aPath: string; aGame: TGame );
 var
    _Image: TPngImage;
@@ -1821,8 +1939,8 @@ begin
    _NodeAdded:= False;
    Screen.Cursor:= crHourGlass;
 
-   //on détermine ensuite l'extension du fichier chargé et
-   //on crée l'objet qui va bien pour affecter au TImage
+   //on dï¿½termine ensuite l'extension du fichier chargï¿½ et
+   //on crï¿½e l'objet qui va bien pour affecter au TImage
    if ( ExtractFileExt( aPath ) = '.png' ) then begin
       _Image:= TPngImage.Create;
       try
@@ -1849,7 +1967,7 @@ begin
    //On ouvre le fichier xml
    XMLDoc.LoadFromFile( FRootPath + FCurrentFolder + Cst_GameListFileName );
 
-   //On récupère le premier noeud "game"
+   //On rï¿½cupï¿½re le premier noeud "game"
    _Node := XMLDoc.DocumentElement.ChildNodes.FindNode( Cst_Game );
 
    //Et on boucle pour trouver le noeud avec le bon Id
@@ -1858,7 +1976,7 @@ begin
       _Node := _Node.NextSibling;
    until not Assigned( _Node );
 
-   //on écrit le chemin vers l'image
+   //on ï¿½crit le chemin vers l'image
    _ImageLink:= FImageFolder + aGame.RomNameWoExt + Cst_ImageSuffixPng;
 
    if not Assigned( _Node.ChildNodes.FindNode( Cst_ImageLink ) ) then begin
@@ -1875,7 +1993,7 @@ begin
    XMLDoc.SaveToFile( FRootPath + FCurrentFolder + Cst_GameListFileName );
    XMLDoc.Active:= False;
 
-   //Et enfin on met à jour l'objet TGame associé
+   //Et enfin on met ï¿½ jour l'objet TGame associï¿½
    aGame.ImagePath:= _ImageLink;
    aGame.PhysicalImagePath:= FRootPath + FCurrentFolder +
                              IncludeTrailingPathDelimiter( FImageFolder ) +
@@ -1963,7 +2081,7 @@ var
    _Node: IXMLNode;
    _ImageReused: Boolean;
 begin
-   //on commence par récupérer l'objet TGame correspondant
+   //on commence par rï¿½cupï¿½rer l'objet TGame correspondant
    _Game:= ( Lbx_Games.Items.Objects[Lbx_Games.ItemIndex] as TGame );
 
    //on construit le chemin vers le gamelist.xml
@@ -1981,7 +2099,7 @@ begin
       _Node := _Node.NextSibling;
    until not Assigned( _Node ) or _ImageReused;
 
-   //On récupère le premier noeud "game"
+   //On rï¿½cupï¿½re le premier noeud "game"
    _Node := XMLDoc.DocumentElement.ChildNodes.FindNode( Cst_Game );
 
    //Et on boucle pour trouver le bon noeud
@@ -2006,7 +2124,7 @@ begin
    //on update l'objet TGame
    _Game.ImagePath:= '';
 
-   //on recharge le jeu pour refléter les changements
+   //on recharge le jeu pour reflï¿½ter les changements
    LoadGame( _Game );
 end;
 
@@ -2068,13 +2186,13 @@ begin
    LoadGame( _Game );
 end;
 
-//Récupère le nom d'enum du systeme sélectionné dans le combobox
+//Rï¿½cupï¿½re le nom d'enum du systeme sï¿½lectionnï¿½ dans le combobox
 function TFrm_Editor.getSystemKind: TSystemKind;
 begin
    Result:= TSystemKindObject( Cbx_Systems.Items.Objects[Cbx_Systems.ItemIndex] ).FSystemKind;
 end;
 
-//Récupère le nom du dossier du systeme selectionné dans le combobox
+//Rï¿½cupï¿½re le nom du dossier du systeme selectionnï¿½ dans le combobox
 function TFrm_Editor.getCurrentFolderName: string;
 begin
    if getSystemKind = skOther then
@@ -2083,13 +2201,13 @@ begin
       Result:= Cst_SystemKindFolderNames[getSystemKind];
 end;
 
-//Récupère le nom du logo du système sélectionné dans le combobox
+//Rï¿½cupï¿½re le nom du logo du systï¿½me sï¿½lectionnï¿½ dans le combobox
 function TFrm_Editor.GetCurrentLogoName: string;
 begin
    Result:= Cst_SystemKindImageNames[getSystemKind];
 end;
 
-//Récupère le systemid du système sélectionné dans le combobox
+//Rï¿½cupï¿½re le systemid du systï¿½me sï¿½lectionnï¿½ dans le combobox
 function TFrm_Editor.GetCurrentSystemId: string;
 begin
    Result:= Cst_SystemKindId[getSystemKind];
@@ -2156,7 +2274,7 @@ begin
    try
       _NodeAdded:= False;
 
-      //On récupère le chemin du fichier gamelist.xml
+      //On rï¿½cupï¿½re le chemin du fichier gamelist.xml
       _GameListPath:= FRootPath + FCurrentFolder + Cst_GameListFileName;
 
       _Index:= Lbx_Games.ItemIndex;
@@ -2181,14 +2299,14 @@ begin
       Hidden:= Cbx_Hidden.ItemIndex;
       Favorite:= Cbx_Favorite.ItemIndex;
 
-      //on boucle sur les jeux sélectionnés
+      //on boucle sur les jeux sï¿½lectionnï¿½s
       for ii:= 0 to Pred( Lbx_Games.Items.Count ) do begin
         if ( Lbx_Games.Selected[ii] ) then begin
 
-          //On récupère le jeu correspondant
+          //On rï¿½cupï¿½re le jeu correspondant
           _Game:= ( Lbx_Games.Items.Objects[ii] as TGame );         
         
-          //On récupère le premier noeud "game"
+          //On rï¿½cupï¿½re le premier noeud "game"
           _Node := XMLDoc.DocumentElement.ChildNodes.FindNode( Cst_Game );
           
           //Et on boucle pour trouver le bon noeud
@@ -2197,7 +2315,7 @@ begin
             _Node := _Node.NextSibling;
           until not Assigned( _Node );
 
-          //On peut maintenant mettre les infos à jour dans le xml si besoin
+          //On peut maintenant mettre les infos ï¿½ jour dans le xml si besoin
           if (Genre <> '') and not ( _Game.Genre.Equals( Genre ) ) then begin
             if not ( NodeExists( _Node, Cst_Genre ) ) then begin
                _Node.AddChild( Cst_Genre );
@@ -2311,7 +2429,7 @@ begin
 
       ProgressBar.Visible:= False;
 
-      //Et enfin on enregistre le fichier (en formatant correctement si on a ajouté un noeud)
+      //Et enfin on enregistre le fichier (en formatant correctement si on a ajoutï¿½ un noeud)
       if _NodeAdded then begin
          XMLDoc.XML.Text:= Xml.Xmldoc.FormatXMLData( XMLDoc.XML.Text );
          XMLDoc.Active:= True;
@@ -2324,7 +2442,7 @@ begin
 
       if ( Lbx_Games.Count > 0 ) then Lbx_Games.Selected[0]:= False;
 
-      //et on remet la sélection sur le bon item si possible
+      //et on remet la sï¿½lection sur le bon item si possible
       if ( Lbx_Games.Count = 0 ) then
          Lbx_Games.ItemIndex:= -1
       else if ( Lbx_Games.Count > 0 ) then begin
@@ -2345,7 +2463,7 @@ begin
 end;
 
 
-//Enregistre les changements effectués pour le jeu dans le fichier .xml
+//Enregistre les changements effectuï¿½s pour le jeu dans le fichier .xml
 //et rafraichit le listbox si besoin
 procedure TFrm_Editor.SaveChangesToGamelist( aScrape, aSaveVideo, aSavePic, aSaveInfos: Boolean );
 
@@ -2372,10 +2490,10 @@ begin
       _NodeAdded:= False;
       _NameChanged:= False;
 
-      //On récupère le chemin du fichier gamelist.xml
+      //On rï¿½cupï¿½re le chemin du fichier gamelist.xml
       _GameListPath:= FRootPath + FCurrentFolder + Cst_GameListFileName;
 
-      //On récupère l'objet TGame qu'on souhaite modifier
+      //On rï¿½cupï¿½re l'objet TGame qu'on souhaite modifier
       if aScrape then _Game:= FScrapedGame
       else _Game:= ( Lbx_Games.Items.Objects[Lbx_Games.ItemIndex] as TGame );
 
@@ -2384,7 +2502,7 @@ begin
       //On ouvre le fichier xml
       XMLDoc.LoadFromFile( _GameListPath );
 
-      //On récupère le premier noeud "game"
+      //On rï¿½cupï¿½re le premier noeud "game"
       _Node := XMLDoc.DocumentElement.ChildNodes.FindNode( Cst_Game );
       if not Assigned( _Node) then Exit;
 
@@ -2396,7 +2514,7 @@ begin
       if not Assigned( _Node ) then Exit;
 
       if aSaveInfos then begin
-         //On peut maintenant mettre les infos à jour dans le xml si besoin
+         //On peut maintenant mettre les infos ï¿½ jour dans le xml si besoin
          if aScrape then Name:= Edt_ScrapeName.Text
          else Name:= Edt_Name.Text;
          if not ( _Game.Name.Equals( Name ) ) then begin
@@ -2566,7 +2684,7 @@ begin
          _Game.PhysicalVideoPath := GetPhysicalMediaPath(_VideoLink);
       end;
 
-      //Et enfin on enregistre le fichier (en formatant correctement si on a ajouté un noeud)
+      //Et enfin on enregistre le fichier (en formatant correctement si on a ajoutï¿½ un noeud)
       if _NodeAdded then begin
          Screen.Cursor:= crHourGlass;
          XMLDoc.XML.Text:= Xml.Xmldoc.FormatXMLData( XMLDoc.XML.Text );
@@ -2581,7 +2699,7 @@ begin
 
       if ( Lbx_Games.Count > 0 ) then Lbx_Games.Selected[0]:= False;
 
-      //et on remet la sélection sur le bon item si possible
+      //et on remet la sï¿½lection sur le bon item si possible
       if ( Lbx_Games.Count = 0 ) then
          Lbx_Games.ItemIndex:= -1
       else if ( Lbx_Games.Count > 0 ) then begin
@@ -2667,6 +2785,20 @@ begin
   LoadGamesList( getCurrentFolderName );  
 end;
 
+//Met Ã  jour l'Ã©tat du menu contextuel des contrÃ´les mÃ©dia avant affichage
+procedure TFrm_Editor.pmPicturePopup(Sender: TObject);
+begin
+   pm_ChangeImage.Enabled:= Btn_ChangeImage.Enabled;
+   pm_RemovePicture.Enabled:= Btn_RemovePicture.Enabled;
+   pm_SetDefaultPicture.Enabled:= Btn_SetDefaultPicture.Enabled;
+end;
+
+procedure TFrm_Editor.pmVideoPopup(Sender: TObject);
+begin
+   pm_ChangeVideo.Enabled:= Btn_ChangeVideo.Enabled;
+   pm_RemoveVideo.Enabled:= Btn_RemoveVideo.Enabled;
+end;
+
 procedure TFrm_Editor.SaveLinkToFile ( aLink, aPath: string );
 var
    Stream: TBytesStream;
@@ -2695,7 +2827,7 @@ begin
    end;
 end;
 
-//Diverse sections du menu sélection
+//Diverse sections du menu sï¿½lection
 procedure TFrm_Editor.Mnu_SetFavoriteClick(Sender: TObject);
 begin
    SetFavOrHidden( True, True );
@@ -2716,7 +2848,7 @@ begin
    SetFavOrHidden( False, False );
 end;
 
-//Passe la sélection en favoris ou hidden (et inversement)
+//Passe la sï¿½lection en favoris ou hidden (et inversement)
 procedure TFrm_Editor.SetFavOrHidden( aFav, aValue: Boolean );
 
    //Permet de s'assurer q'un noeud existe
@@ -2735,7 +2867,7 @@ var
    ii: Integer;
 begin
    _NodeAdded:= False;
-   //On récupère le chemin du fichier gamelist.xml
+   //On rï¿½cupï¿½re le chemin du fichier gamelist.xml
    _GameListPath:= FRootPath + FCurrentFolder + Cst_GameListFileName;
 
    //On ouvre le fichier xml
@@ -2746,14 +2878,14 @@ begin
    ProgressBar.Position:= 0;
    ProgressBar.Max:= Lbx_Games.SelCount;
 
-   //on boucle sur les jeux sélectionnés
+   //on boucle sur les jeux sï¿½lectionnï¿½s
    for ii:= 0 to Pred( Lbx_Games.Items.Count ) do begin
       if ( Lbx_Games.Selected[ii] ) then begin
 
-         //On récupère le jeu correspondant
+         //On rï¿½cupï¿½re le jeu correspondant
          _Game:= ( Lbx_Games.Items.Objects[ii] as TGame );
 
-         //On récupère le premier noeud "game"
+         //On rï¿½cupï¿½re le premier noeud "game"
          _Node := XMLDoc.DocumentElement.ChildNodes.FindNode( Cst_Game );
 
          //Et on boucle pour trouver le bon noeud
@@ -2811,7 +2943,7 @@ begin
       ( MyMessageDlg( Rst_DeleteWarning, mtInformation,
                     [mbYes, mbNo], [Rst_Yes, Rst_No], Rst_Info ) = mrYes ) then begin
 
-      //on mémorise l'index du listbox pour remettre à la fin
+      //on mï¿½morise l'index du listbox pour remettre ï¿½ la fin
       _Index:= Lbx_Games.ItemIndex;
 
       if Lbx_Games.SelCount > 1 then begin
@@ -2844,7 +2976,7 @@ begin
          DeleteGame( ( Lbx_Games.Items.Objects[Lbx_Games.ItemIndex] as TGame ) );
       end;
 
-      //et on remet la sélection sur le jeu précédent le supprimé( si possible )
+      //et on remet la sï¿½lection sur le jeu prï¿½cï¿½dent le supprimï¿½( si possible )
       if ( ( _Index = 0 ) and ( Lbx_Games.Count = 0 ) ) or
          ( ( _Index > 1 ) and ( Lbx_Games.Count > 1 ) ) then
          Lbx_Games.ItemIndex:= Pred( _Index )
@@ -2879,7 +3011,7 @@ begin
    Screen.Cursor:= crDefault;
 end;
 
-//Supprime un jeu du gamelist et physiquement sur le disque (ou carte SD ou clé...)
+//Supprime un jeu du gamelist et physiquement sur le disque (ou carte SD ou clï¿½...)
 procedure TFrm_Editor.DeleteGame( aGame: TGame; reloadGameList: Boolean = True );
 var
    _Node: IXMLNode;
@@ -2913,7 +3045,7 @@ begin
       _Node := _Node.NextSibling;
    until not Assigned( _Node );
 
-    //On récupère le premier noeud "game"
+    //On rï¿½cupï¿½re le premier noeud "game"
     _Node := XMLDoc.DocumentElement.ChildNodes.FindNode( Cst_Game );
 
     //Et on boucle pour trouver le bon noeud
@@ -2936,17 +3068,17 @@ begin
     if not _VideoReused then
        DeleteFile( aGame.PhysicalVideoPath );
 
-    //suppression du jeu physiquement (action spéciale pour PSX)
+    //suppression du jeu physiquement (action spï¿½ciale pour PSX)
     if ( getSystemKind = skPS ) then begin
        DeleteFile( StringReplace( aGame.PhysicalRomPath, '.cue', '.bin', [rfReplaceAll] ) );
        DeleteFile( StringReplace( aGame.PhysicalRomPath, '.bin', '.cue', [rfReplaceAll] ) );
     end else
        DeleteFile( aGame.PhysicalRomPath );
 
-    //Suppression du jeu dans sa liste mère
+    //Suppression du jeu dans sa liste mï¿½re
     _List.Remove( aGame );
 
-    //et mise à jour de l'affichage du listbox pour prendre en compte la suppression
+    //et mise ï¿½ jour de l'affichage du listbox pour prendre en compte la suppression
     if reloadGameList then
       LoadGamesList( getCurrentFolderName );
 end;
@@ -2980,7 +3112,7 @@ begin
    //on l'active
    XMLDoc.Active:= True;
 
-   //On récupère la liste de noeuds "game"
+   //On rï¿½cupï¿½re la liste de noeuds "game"
    _NodeList:= XMLDoc.DocumentElement.ChildNodes;
    Count:= _NodeList.Count;
 
@@ -3008,14 +3140,14 @@ begin
       ProgressBar.Position:= ( ProgressBar.Position + 1 );
    end;
 
-   //on désactive la progressbar
+   //on dï¿½sactive la progressbar
    ProgressBar.Visible:= False;
 
-   //ensuite on sauvegarde le gamelist nettoyé
+   //ensuite on sauvegarde le gamelist nettoyï¿½
    XMLDoc.SaveToFile( _GameListPath );
    XMLDoc.Active:= False;
 
-   //on supprime la liste de jeu de la liste générale des sytèmes
+   //on supprime la liste de jeu de la liste gï¿½nï¿½rale des sytï¿½mes
    //et on la reconstruit et ajoute
    GSystemList.Remove( aSystem );
    _List:= BuildGamesList( _GameListPath );
@@ -3029,7 +3161,7 @@ end;
 //Vidage de tous les champs et de l'image
 procedure TFrm_Editor.ClearAllFields;
 begin
-   //On désactive les évènements sur les changements dans les champs
+   //On dï¿½sactive les ï¿½vï¿½nements sur les changements dans les champs
    FIsLoading:= True;
 
    Edt_Name.Text:= '';
@@ -3047,7 +3179,7 @@ begin
    Cbx_Hidden.ItemIndex:= -1;
    Cbx_Favorite.ItemIndex:= -1;
 
-   //on remet les évènements sur les champs
+   //on remet les ï¿½vï¿½nements sur les champs
    FIsLoading:= False;
 end;
 
@@ -3063,7 +3195,7 @@ begin
    LoadGamesList( getCurrentFolderName );
 end;
 
-//Au click sur le menuitem godmode on change la visibilité du bouton delete
+//Au click sur le menuitem godmode on change la visibilitï¿½ du bouton delete
 procedure TFrm_Editor.Mnu_GodModeClick(Sender: TObject);
 begin
    Btn_Delete.Visible:= Mnu_GodMode.Checked;
@@ -3121,8 +3253,8 @@ begin
    ExportToTxt;
 end;
 
-//Permet d'exporter la liste des jeux du système courant dans un fichier txt
-//trié par ordre alphabétique avec délimiteur par lettre
+//Permet d'exporter la liste des jeux du systï¿½me courant dans un fichier txt
+//triï¿½ par ordre alphabï¿½tique avec dï¿½limiteur par lettre
 procedure TFrm_Editor.ExportToTxt;
 var
    FirstCharRef, FirstCharCurrent: string;
@@ -3131,14 +3263,14 @@ var
    Game: TGame;
    ii: Integer;
 begin
-   //on récupère la liste du système courant
+   //on rï¿½cupï¿½re la liste du systï¿½me courant
    GSystemList.TryGetValue( getCurrentFolderName, SystemList );
 
-   //On crée la stringlist triée et on la remplit avec noms des jeux.
+   //On crï¿½e la stringlist triï¿½e et on la remplit avec noms des jeux.
    SortedList:= TStringList.Create;
    SortedList.Sorted:= True;
    SortedList.Duplicates:= dupAccept;
-   //on crée la liste finale formatée pour export
+   //on crï¿½e la liste finale formatï¿½e pour export
    FormatedList:= TStringList.Create;
    try
       for Game in SystemList do begin
@@ -3146,11 +3278,11 @@ begin
          else SortedList.Add( Game.Name );
       end;
 
-      //on chope le premier caractère du premier élément de la liste triée
+      //on chope le premier caractï¿½re du premier ï¿½lï¿½ment de la liste triï¿½e
       FirstCharRef:= SortedList[0][1];
       FormatedList.Add( '---------- ' + AnsiUpperCase( FirstCharRef ) + ' ----------' );
       FormatedList.Add( sLineBreak );
-      //ici on boucle sur la liste triée pour remplir la liste formatée
+      //ici on boucle sur la liste triï¿½e pour remplir la liste formatï¿½e
       for ii:= 0 to Pred( SortedList.Count ) do begin
          FirstCharCurrent:= SortedList[ii][1];
          if ( FirstCharCurrent = FirstCharRef ) then
@@ -3164,12 +3296,12 @@ begin
          end;
       end;
 
-      //et on demande à l'utilisateur où il veut sauvegarder et avec quel nom
+      //et on demande ï¿½ l'utilisateur oï¿½ il veut sauvegarder et avec quel nom
       if SaveDialog.Execute then
          FormatedList.SaveToFile( SaveDialog.FileName + Cst_TxtExtension );
 
    finally
-      //et enfin on libère tout ce petit monde
+      //et enfin on libï¿½re tout ce petit monde
       SortedList.Free;
       FormatedList.Free;
    end;
@@ -3180,7 +3312,7 @@ procedure TFrm_Editor.Mnu_ConfigSSHClick(Sender: TObject);
 var
    Frm_ConfigSSH: TFrm_ConfigureSSH;
 begin
-   //on affiche la fenêtre pour saisir les id de connexion SSH
+   //on affiche la fenï¿½tre pour saisir les id de connexion SSH
    Frm_ConfigSSH:= TFrm_ConfigureSSH.Create( nil );
    try
       Frm_ConfigSSH.Execute( FRecalLogin, FRecalPwd, FRetroLogin, FRetroPwd );
@@ -3194,7 +3326,7 @@ procedure TFrm_Editor.Mnu_ConfigureNetworkClick(Sender: TObject);
 var
    Frm_Network: TFrm_Network;
 begin
-   //on affiche la fenêtre pour saisir les id screenscraper et proxy
+   //on affiche la fenï¿½tre pour saisir les id screenscraper et proxy
    Frm_Network:= TFrm_Network.Create( nil );
    try
       Frm_Network.Execute( FSSLogin, FSSPwd, FProxyUser, FProxyPwd,
@@ -3263,11 +3395,11 @@ begin
 end;
 
 //Permet de convertir les champs en majuscule ou minuscule en fonction
-// des paramètres passés (fonctionne par systeme ou par jeu)
+// des paramï¿½tres passï¿½s (fonctionne par systeme ou par jeu)
 procedure TFrm_Editor.ConvertFieldsCase( aGame: TGame; aUnique: Boolean = False;
                                           aUp: Boolean = False );
 
-   //rafraichit les données des champs EDIT dans le cas de modif d'un seul jeu
+   //rafraichit les donnï¿½es des champs EDIT dans le cas de modif d'un seul jeu
    procedure RefreshDisplay( aGame: TGame );
    begin
       Edt_Name.Text:= aGame.Name;
@@ -3304,7 +3436,7 @@ begin
    //on l'active
    XMLDoc.Active:= True;
 
-   //On récupère le premier noeud correspondant au jeu
+   //On rï¿½cupï¿½re le premier noeud correspondant au jeu
    _Node := XMLDoc.DocumentElement.ChildNodes.FindNode( Cst_Game );
 
    //Et on boucle pour trouver le bon noeud
@@ -3313,7 +3445,7 @@ begin
          _Node := _Node.NextSibling;
    until not Assigned( _Node );
 
-   //on met à jour le xml et l'objet game
+   //on met ï¿½ jour le xml et l'objet game
    aGame.Name:= ConvertUpOrLow( _Node, Cst_Name, aUp, aGame.Name );
    aGame.Region:= ConvertUpOrLow( _Node, Cst_Region, aUp, aGame.Region );
    aGame.Developer:= ConvertUpOrLow( _Node, Cst_Developer, aUp, aGame.Developer );
@@ -3321,7 +3453,7 @@ begin
    aGame.Genre:= ConvertUpOrLow( _Node, Cst_Genre, aUp, aGame.Genre );
    aGame.Description:= ConvertUpOrLow( _Node, Cst_Description, aUp, aGame.Description );
 
-   //si maj d'un seul jeu on met à jour l'affichage du jeu
+   //si maj d'un seul jeu on met ï¿½ jour l'affichage du jeu
    if aUnique then RefreshDisplay( aGame );
 
    //on enregistre le fichier xml
@@ -3334,7 +3466,7 @@ procedure TFrm_Editor.Mnu_AboutClick(Sender: TObject);
 var
    Frm_About: TFrm_About;
 begin
-   //Affiche la fenêtre "About"
+   //Affiche la fenï¿½tre "About"
    Frm_About:= TFrm_About.Create(nil);
    try
       Frm_About.Execute;
@@ -3348,7 +3480,7 @@ procedure TFrm_Editor.Mnu_HelpClick(Sender: TObject);
 var
    Frm_Help: TFrm_Help;
 begin
-   //Affiche la fenêtre "Help"
+   //Affiche la fenï¿½tre "Help"
    Frm_Help:= TFrm_Help.Create(nil);
    Frm_Help.Chk_ShowTips.Visible:= False;
    try
@@ -3364,7 +3496,7 @@ begin
    FPiPrompts:= Mnu_PiPrompts.Checked;
 end;
 
-//Sans ça pas de Ctrl+A dans le mémo...(c'est triste en 2017)
+//Sans ï¿½a pas de Ctrl+A dans le mï¿½mo...(c'est triste en 2017)
 procedure TFrm_Editor.Mmo_DescriptionKeyPress(Sender: TObject; var Key: Char);
 begin
    if ( Key = ^A ) then begin
@@ -3373,17 +3505,17 @@ begin
    end;
 end;
 
-//Click sur le bouton more infos pour afficher la fenêtre de complément d'infos
-//sur le jeu sélectionné
+//Click sur le bouton more infos pour afficher la fenï¿½tre de complï¿½ment d'infos
+//sur le jeu sï¿½lectionnï¿½
 procedure TFrm_Editor.Btn_MoreInfosClick(Sender: TObject);
 var
    _Game: TGame;
    MoreInfos: TFrm_MoreInfos;
 begin
-   //on récupère le jeu sélectionné
+   //on rï¿½cupï¿½re le jeu sï¿½lectionnï¿½
    _Game:= TGame( Lbx_Games.Items.Objects[Lbx_Games.ItemIndex] );
 
-   //On ajoute les hash si nécessaire.
+   //On ajoute les hash si nï¿½cessaire.
    if ( ( _Game.Md5.IsEmpty ) or
         ( _Game.Sha1.IsEmpty ) or
         ( _Game.Crc32.IsEmpty ) ) then begin
@@ -3397,7 +3529,7 @@ begin
       end;
    end;
 
-   //et on affiche la fenêtre
+   //et on affiche la fenï¿½tre
    MoreInfos:= TFrm_MoreInfos.Create( nil );
    try
       MoreInfos.Execute( _Game );
@@ -3427,7 +3559,7 @@ begin
       _Game:= ( Lbx_Games.Items.Objects[ii] as TGame );
       _Pos:= Pos( '[', _Game.Name );
 
-      //si on trouve le caractère, on traite
+      //si on trouve le caractï¿½re, on traite
       if not ( _Pos = 0 ) then
          RemoveRegionFromGameName( _Game, Pred( _Pos ) );
       ProgressBar.Position:= ( ProgressBar.Position + 1 );
@@ -3473,7 +3605,7 @@ begin
    //on l'active
    XMLDoc.Active:= True;
 
-   //On récupère le premier noeud correspondant au jeu
+   //On rï¿½cupï¿½re le premier noeud correspondant au jeu
    _Node := XMLDoc.DocumentElement.ChildNodes.FindNode( Cst_Game );
 
    //Et on boucle pour trouver le bon noeud
@@ -3482,10 +3614,10 @@ begin
          _Node := _Node.NextSibling;
    until not Assigned( _Node );
 
-   //on repère la position du caractère ]
+   //on repï¿½re la position du caractï¿½re ]
    _EndPos:= Pos( ']', aGame.Name );
 
-    //On met à jour l'objet TGame
+    //On met ï¿½ jour l'objet TGame
     _Name:= aGame.Name;
     Delete( _Name, aStartPos,  Succ( _EndPos - aStartPos ) );
     aGame.Name:= _Name;
@@ -3523,9 +3655,9 @@ begin
    Cbx_Favorite.ItemIndex:= index3;
    Cbx_KidGame.ItemIndex:= index4;
 
-   //On indique le nombre de jeux trouvés
-   //Je suis obligé de refaire ça ici sinon le label reste sur l'ancienne langue
-   //tant qu'on a pas changé de système (pas trouvé d'autre moyen)
+   //On indique le nombre de jeux trouvï¿½s
+   //Je suis obligï¿½ de refaire ï¿½a ici sinon le label reste sur l'ancienne langue
+   //tant qu'on a pas changï¿½ de systï¿½me (pas trouvï¿½ d'autre moyen)
    if ( Cbx_Systems.ItemIndex <> -1 ) then begin
       Lbl_NbGamesFound.Caption:= '';
       GSystemList.TryGetValue( getCurrentFolderName, _TmpList );
@@ -3568,8 +3700,8 @@ begin
    end;
 end;
 
-//Transforme les noms des jeux de la sélection selon les options
-//choisies dans l'éditeur avancé.
+//Transforme les noms des jeux de la sï¿½lection selon les options
+//choisies dans l'ï¿½diteur avancï¿½.
 procedure TFrm_Editor.TransformGamesNames( aRemChars, aAddChars, aChangecase: Boolean;
                                            aNbStart, aNbEnd, aCaseIndex: Integer;
                                            const aStringStart, aStringEnd : string );
@@ -3579,7 +3711,7 @@ var
    _Game: TGame;
    ii: Integer;
 begin
-   //On récupère le chemin du fichier gamelist.xml
+   //On rï¿½cupï¿½re le chemin du fichier gamelist.xml
    _GameListPath:= FRootPath + FCurrentFolder + Cst_GameListFileName;
 
    //On ouvre le fichier xml
@@ -3590,11 +3722,11 @@ begin
    ProgressBar.Position:= 0;
    ProgressBar.Max:= Lbx_Games.SelCount;
 
-   //on boucle sur les jeux sélectionnés
+   //on boucle sur les jeux sï¿½lectionnï¿½s
    for ii:= 0 to Pred( Lbx_Games.Items.Count ) do begin
       if ( Lbx_Games.Selected[ii] ) then begin
 
-         //On récupère le jeu correspondant
+         //On rï¿½cupï¿½re le jeu correspondant
          _Game:= ( Lbx_Games.Items.Objects[ii] as TGame );
          TmpStr:= _Game.Name;
 
@@ -3623,7 +3755,7 @@ begin
          //on change le nom du jeu par le nouveau
          _Game.Name:= TmpStr;
 
-         //On récupère le premier noeud "game"
+         //On rï¿½cupï¿½re le premier noeud "game"
          _Node := XMLDoc.DocumentElement.ChildNodes.FindNode( Cst_Game );
 
          //Et on boucle pour trouver le bon noeud
@@ -3652,7 +3784,7 @@ procedure TFrm_Editor.Mnu_QuitClick(Sender: TObject);
 begin
    //on save les options dans le ini
    SaveToIni;
-   //si on a chargé au moins une fois le dossier depuis le bi, on reboot
+   //si on a chargï¿½ au moins une fois le dossier depuis le bi, on reboot
    if FPiLoadedOnce then begin
       //on affiche ou non le prompt d'info reboot
       if not FPiPrompts then
@@ -3665,13 +3797,13 @@ end;
 
 
 
-// Ajouté par Benjamin.A le 13/11/2017 11:24:50 :
-// A partir d'ici ce sont toutes les méthodes utilisées dans l'onglet de scrape
+// Ajoutï¿½ par Benjamin.A le 13/11/2017 11:24:50 :
+// A partir d'ici ce sont toutes les mï¿½thodes utilisï¿½es dans l'onglet de scrape
 //******************************************************************************
 
 
 
-// Ajouté par Benjamin.A le 13/11/2017 11:26:29 :
+// Ajoutï¿½ par Benjamin.A le 13/11/2017 11:26:29 :
 //A l'affichage de l'onglet Scrape
 procedure TFrm_Editor.Tbs_ScrapeShow(Sender: TObject);
 begin
@@ -3690,13 +3822,13 @@ begin
 
    ClearScrapeMedia;
 
-   //on désactive les items du mainmenu qui ne doivent pas être utilisés
+   //on dï¿½sactive les items du mainmenu qui ne doivent pas ï¿½tre utilisï¿½s
    Mnu_Actions.Enabled:= False;
    Mnu_Theme.Enabled:= False;
 end;
 
 //Quand on sort de l'onglet scrape, on vide les listes
-//Et on reload le jeu au cas où on a modifié des trucs
+//Et on reload le jeu au cas oï¿½ on a modifiï¿½ des trucs
 procedure TFrm_Editor.Tbs_ScrapeHide(Sender: TObject);
 begin
    if Assigned( FScrapedGame ) and
@@ -3706,7 +3838,7 @@ begin
    else
       UpdateVideo( Lbx_Games.Items.Objects[Lbx_Games.ItemIndex] as TGame );
 
-   //on réactive les items du mainmenu désactivés à l'entrée dans l'onglet
+   //on rï¿½active les items du mainmenu dï¿½sactivï¿½s ï¿½ l'entrï¿½e dans l'onglet
    Mnu_Actions.Enabled:= True;
    Mnu_Theme.Enabled:= True;
 end;
@@ -3722,7 +3854,7 @@ begin
    Chk_ScrapeVideo.Enabled := False;
 end;
 
-//Requête GET pour récupérer le XML des infos du jeu.
+//Requï¿½te GET pour rï¿½cupï¿½rer le XML des infos du jeu.
 function TFrm_Editor.GetGameXml( const aSysId: string; aGame: TGame ): Boolean;
 var
    Query, Crc32, Size: String;
@@ -3735,7 +3867,7 @@ begin
 
    Size:= GetFileSize( aGame.PhysicalRomPath );
 
-   //construction de la requête API pour le jeu
+   //construction de la requï¿½te API pour le jeu
    Query:= Cst_ScraperAddress + Cst_Category + Cst_ScrapeLogin + Cst_ScrapePwd +
            Cst_DevSoftName + Cst_Output;
 
@@ -3780,7 +3912,7 @@ begin
    Result:= True;
 end;
 
-//parsing du Xml pour récupérer tout ce qui est description, région, nombre joueurs etc...
+//parsing du Xml pour rï¿½cupï¿½rer tout ce qui est description, rï¿½gion, nombre joueurs etc...
 procedure TFrm_Editor.ParseXml;
 
    function CreateDict( aNodeList: IXMLNodeList; const aAttName: string ): TDictionary<string, string>;
@@ -3825,7 +3957,7 @@ begin
    //ouverture du fichier xml
    XMLDoc.LoadFromFile( FTempXmlPath );
 
-   //On trouve le noeud qui nous intéresse
+   //On trouve le noeud qui nous intï¿½resse
    RootNode:= XMLDoc.ChildNodes[Cst_DataNode].ChildNodes[Cst_GameNode];
 
    Node:= RootNode.ChildNodes.FindNode(Cst_NamesNode);
@@ -3884,7 +4016,7 @@ begin
    if Assigned( Node ) then begin
       Nodes:= Node.ChildNodes;
       if Assigned( Nodes ) and ( Nodes.Count > 0 ) then begin
-         //Et on boucle pour trouver les noeuds qui nous intéressent
+         //Et on boucle pour trouver les noeuds qui nous intï¿½ressent
          for ii:= 0 to Pred( Nodes.Count ) do begin
             // Video types enable the Save Video button and keep the link for later
             if ( ( Nodes[ii].Attributes[Cst_AttType] = Cst_MediaVideo ) and
@@ -3933,13 +4065,13 @@ begin
    DeleteFile( FTempXmlPath );
 end;
 
-//Crée les images depuis la liste globale des liens.
+//Crï¿½e les images depuis la liste globale des liens.
 //(lancement du nombre de thread en fonction du user screenscraper)
 procedure TFrm_Editor.GetPictures;
 var
    ii: Integer;
 begin
-   //si il n'y a pas d'image à récup, on réactive tout le bazar et on sort
+   //si il n'y a pas d'image ï¿½ rï¿½cup, on rï¿½active tout le bazar et on sort
    if ( FPictureLinks.Count = 0 ) then begin
       Img_Loading.Visible:= False;
       FillFields;
@@ -3956,7 +4088,7 @@ begin
    end;
 end;
 
-//Crée un thread de download d'image
+//Crï¿½e un thread de download d'image
 procedure TFrm_Editor.GetPicture( aMedia: TMediaInfo );
 var
    Thread: TDOwnThread;
@@ -3968,10 +4100,10 @@ begin
    Thread.Start;
 end;
 
-//Action réalisée par un thread lorsqu'il se termine
+//Action rï¿½alisï¿½e par un thread lorsqu'il se termine
 procedure TFrm_Editor.ThreadTerminated( Sender: TObject );
 begin
-   //on lock l'accés au compteur de threads
+   //on lock l'accï¿½s au compteur de threads
    CounterGuard.Acquire;
 
    Inc( FThreadCount );
@@ -3985,11 +4117,11 @@ begin
       Enabled:= True;
    end;
 
-   //on libère le lock du compteur
+   //on libï¿½re le lock du compteur
    CounterGuard.Release;
 end;
 
-//Affichage des images récupérées
+//Affichage des images rï¿½cupï¿½rï¿½es
 procedure TFrm_Editor.DisplayPictures;
 var
    ii, Left, Count: Integer;
@@ -4020,25 +4152,25 @@ begin
    Scl_Pictures.Realign;
 end;
 
-//Remplissage des champs avec les infos scrapées
+//Remplissage des champs avec les infos scrapï¿½es
 procedure TFrm_Editor.FillFields;
 
    function GetFormatedDate( const aStr: string ): string;
    var
       Day, Month, Year: string;
    begin
-      //si la chaine fait 4 caractères de long
+      //si la chaine fait 4 caractï¿½res de long
       if ( Length( aStr) = 4 ) then
          Result:= aStr;
       
-      //si la chaine fait 7 caractères de long
+      //si la chaine fait 7 caractï¿½res de long
       if ( Length( aStr) = 7 ) then begin
          Month:= Copy( aStr, 6, 2 );
          Year:= Copy( aStr, 1, 4 );
          Result:= Month + '/' + Year;
       end;
       
-      //si la chaine fait 10 caractères de long
+      //si la chaine fait 10 caractï¿½res de long
       if ( Length( aStr) = 10 ) then begin
          Day:= Copy( aStr, 9, 2 );
          Month:= Copy( aStr, 6, 2 );
@@ -4055,7 +4187,7 @@ var
    Item: TPair<string, TDictionary<string, string>>;
    List: TStringList;
 begin
-   //On chope la string correspondant à la langue "en cours"
+   //On chope la string correspondant ï¿½ la langue "en cours"
    LangStr:= Copy( Cst_LangNameStr[GetLangEnum( FLanguage )], 1 , 2 );
 
    if ( FInfosList.Count = 0 ) then Exit;
@@ -4071,7 +4203,7 @@ begin
       else Edt_ScrapeName.Text:= '';
    end else Edt_ScrapeName.Text:= '';
 
-   //région
+   //rï¿½gion
    if not FInfosList[1].IsEmpty then begin
       List:= ( FInfosList.Objects[1] as TStringList );
       Edt_ScrapeRegion.Text:= '';
@@ -4155,24 +4287,24 @@ procedure TFrm_Editor.FindGameRoms(const aSystem: string);
 
     UniqueFiles := TDictionary<string, Boolean>.Create;
     try
-      // Ðàçáèâàåì êîìïëåêñíóþ ìàñêó íà îòäåëüíûå ìàñêè
+      // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½
       Masks := Mask.Split([';'], TStringSplitOptions.ExcludeEmpty);
 
       for CurrentMask in Masks do
       begin
-        // Íà÷èíàåì ïîèñê ïî òåêóùåé ìàñêå
+        // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½
         Found := FindFirst(IncludeTrailingPathDelimiter(Path) + CurrentMask, faAnyFile, SearchRec);
         try
           while Found = 0 do
           begin
-            // Ïðîïóñêàåì ñèñòåìíûå ïàïêè è äèðåêòîðèè
+            // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
             if (SearchRec.Name <> '.') and
                (SearchRec.Name <> '..') and
                ((SearchRec.Attr and faDirectory) = 0) then
             begin
               FullPath := IncludeTrailingPathDelimiter(Path) + SearchRec.Name;
 
-              // Äîáàâëÿåì òîëüêî óíèêàëüíûå ôàéëû
+              // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½
               if not UniqueFiles.ContainsKey(FullPath) then
               begin
                 Result.Add( ExtractFileName(FullPath));
@@ -4247,7 +4379,7 @@ begin
                                              AnsiLowerCase( Mmo_ScrapeDescription.Text ) );
 end;
 
-//active les composants de la fenêtre de scrape
+//active les composants de la fenï¿½tre de scrape
 procedure TFrm_Editor.EnableScrapeComponents( aValue: Boolean );
 begin
    Edt_ScrapeGenre.Enabled:= aValue;
@@ -4277,7 +4409,7 @@ begin
    Chk_ScrapeInfos.Enabled:= aValue;
 end;
 
-//Pour prévenir le user si problème ou pas de médias trouvés
+//Pour prï¿½venir le user si problï¿½me ou pas de mï¿½dias trouvï¿½s
 procedure TFrm_Editor.WarnUser( const aMessage: string );
 begin
    Screen.Cursor:= crDefault;
@@ -4299,7 +4431,7 @@ begin
              aSafeUrl);
 end;
 
-//Pour récupérer la taille du fichier du jeu
+//Pour rï¿½cupï¿½rer la taille du fichier du jeu
 function TFrm_Editor.GetFileSize( const aPath: string ): string;
 var
    Reader: TFileStream;
@@ -4320,7 +4452,7 @@ begin
    EmptyScrapeFields;
    ClearScrapeMedia;
 
-   //on désactive pour éviter les clicks intempestifs pendant le chargement
+   //on dï¿½sactive pour ï¿½viter les clicks intempestifs pendant le chargement
    Img_Loading.Visible:= True;
    Refresh;
    Enabled:= False;
@@ -4396,7 +4528,7 @@ procedure TFrm_Editor.FormClose(Sender: TObject; var Action: TCloseAction);
 begin
    //on save les options dans le ini
    SaveToIni;
-   //si on a chargé au moins une fois le dossier depuis le pi, on reboot
+   //si on a chargï¿½ au moins une fois le dossier depuis le pi, on reboot
    if FPiLoadedOnce then begin
       //on affiche ou non le prompt d'info reboot
       if not FPiPrompts then
@@ -4415,21 +4547,21 @@ begin
    end;
 end;
 
-//Nettoyage mémoire à la fermeture du programme
+//Nettoyage mï¿½moire ï¿½ la fermeture du programme
 procedure TFrm_Editor.FormDestroy(Sender: TObject);
 begin
-   //Toutes les listes étant "owner" de leurs objets
+   //Toutes les listes ï¿½tant "owner" de leurs objets
    //un simple Free sur cette liste videra automatiquement les autres
    GSystemList.Free;
 
-   //On libère toutes les listes du scrape
+   //On libï¿½re toutes les listes du scrape
    FImgList.Free;
    FInfosList.Free;
    FPictureLinks.Free;
    if not FIsWine then
       Wmp_Video.Free;
 
-   //libère l'objet lock du compteur de threads
+   //libï¿½re l'objet lock du compteur de threads
    CounterGuard.Free;
 end;
 
