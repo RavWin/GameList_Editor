@@ -5,6 +5,11 @@ All notable changes to this project are documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Advanced game list** on the Game List tab (replaces the unused `lbListRoms`).
+  - Owner-drawn list of the current system's games showing, to the right of the name, colored status glyphs for each media type: Image, Video, Box, Manual, Wheel, Tips and Tricks, Map.
+  - Image/Video presence comes from the resolved gamelist.xml paths; the other types are detected by scanning the system `<media>` subfolders for a file matching the ROM name.
+  - **Sorting** (`cbSortList`): by game name, file name, and presence of image, video or description.
+  - **Duplicate search** (`bFindDupes`): highlights duplicate games in the list by game name, ROM file name or CRC32.
 - **Progress bar while loading a system folder.**
   - New two-pass loading in `BuildSystemsList`: a first pass (`CountGamesInFile`) counts all games to size the progress bar accurately before loading.
   - `BuildGamesList` now accepts an optional `aProgress` flag to advance the progress bar and pump messages during the long synchronous load.

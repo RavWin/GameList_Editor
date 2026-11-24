@@ -423,6 +423,17 @@ const
    Cst_IniSystem = 'SelectedSystem';   // Last Selected System (Folder Name)
    Cst_IniAutoLoadOnStart = 'AutoLoadOnStart';  // Auto Load Last Root Folder on start
 
+   //Media folder structure (Recalbox/RetroPie style) inside each system folder.
+   //Used to detect which media types exist for a game (in addition to gamelist.xml paths).
+   Cst_MediaFolderName = 'media';
+   Cst_MediaImageSubFolder = 'images';
+   Cst_MediaVideoSubFolder = 'videos';
+   Cst_MediaBoxSubFolder = 'box2d';
+   Cst_MediaManualSubFolder = 'manuals';
+   Cst_MediaWheelSubFolder = 'wheels';
+   Cst_MediaTipsSubFolder = 'tips and tricks';
+   Cst_MediaMapSubFolder = 'maps';
+
    Cst_GenesisLogoName = 'genesis.png';
    Cst_ThemeNumber = 'ThemeNumber';
    Cst_MenuTheme = 'Mnu_Theme';

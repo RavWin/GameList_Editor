@@ -6,7 +6,7 @@ uses
    Winapi.Windows, Winapi.Messages, Winapi.ShellAPI,
    System.SysUtils, System.Variants, System.Classes, System.IniFiles, System.Generics.Collections,
    System.RegularExpressions, System.UITypes, System.ImageList, System.StrUtils, System.IOUtils,
-   System.SyncObjs,
+   System.SyncObjs, System.Generics.Defaults,
    Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.Styles, Vcl.Themes, Vcl.ImgList,
    Vcl.ExtCtrls, Vcl.Imaging.pngimage, Vcl.Imaging.jpeg, Vcl.Menus, Vcl.ComCtrls, Vcl.StdCtrls,
    Xml.omnixmldom, Xml.xmldom, Xml.XMLIntf, Xml.XMLDoc, Xml.Win.msxmldom,
@@ -15,12 +15,24 @@ uses
    RVer,
    Vcl.OleCtrls, WMPLib_TLB, System.Net.URLClient,
    System.Net.HttpClient, System.Net.HttpClientComponent, System.Actions,
-  Vcl.ActnList, Vcl.Mask;
+  Vcl.ActnList, Vcl.Mask, Vcl.VirtualImageList, Vcl.BaseImageCollection,
+  Vcl.ImageCollection;
 
 type
    TMediaInfo = class
       FileExt: string;
       FileLink: string;
+   end;
+
+   //Stores which media types exist for a game (gamelist paths + media folder scan)
+   TGameMediaStatus = record
+      HasImage: Boolean;
+      HasVideo: Boolean;
+      HasBox: Boolean;
+      HasManual: Boolean;
+      HasWheel: Boolean;
+      HasTips: Boolean;
+      HasMap: Boolean;
    end;
 
    TFrm_Editor = class(TForm)
@@ -140,7 +152,6 @@ type
       Mnu_Reload: TMenuItem;
       Net_HTTPClient: TNetHTTPClient;
     pSystemControls: TPanel;
-    Lbx_Games: TListBox;
     Edt_RomPath: TEdit;
     pSystems: TPanel;
     Lbl_SelectSystem: TLabel;
@@ -210,8 +221,9 @@ type
     bScanFolder: TButton;
     leROMext: TLabeledEdit;
     mLog: TMemo;
-    lbListRoms: TListBox;
     bAddToList: TButton;
+    cbSortList: TComboBox;
+    bFindDupes: TButton;
     pm_SaveGameList: TMenuItem;
     Mnu_AutoLoadOnStart: TMenuItem;
     pm_ScanForROMs: TMenuItem;
@@ -223,6 +235,12 @@ type
     pm_RemovePicture: TMenuItem;
     pm_ChangeVideo: TMenuItem;
     pm_RemoveVideo: TMenuItem;
+    Lbx_Games: TListBox;
+    lbListRoms: TListBox;
+    FindDuplicates: TMenuItem;
+    aFindDuplicates: TAction;
+    viSystems: TVirtualImageList;
+    icSystems: TImageCollection;
 
       procedure FormCreate(Sender: TObject);
       procedure FormDestroy(Sender: TObject);
@@ -297,8 +315,17 @@ type
     procedure pm_SaveGameListClick(Sender: TObject);
     procedure Mnu_AutoLoadOnStartClick(Sender: TObject);
     procedure pm_ScanForROMsClick(Sender: TObject);
+    procedure pmGameListPopup(Sender: TObject);
+    procedure lbListRomsDrawItem(Control: TWinControl; Index: Integer;
+      Rect: TRect; State: TOwnerDrawState);
+    procedure lbListRomsMouseDown(Sender: TObject; Button: TMouseButton;
+      Shift: TShiftState; X, Y: Integer);
+    procedure cbSortListChange(Sender: TObject);
+    procedure bFindDupesClick(Sender: TObject);
     procedure pmPicturePopup(Sender: TObject);
     procedure pmVideoPopup(Sender: TObject);
+    procedure lbListRomsClick(Sender: TObject);
+    procedure aFindDuplicatesExecute(Sender: TObject);
 
    private
 
@@ -323,6 +350,13 @@ type
       FAutoLoadOnStart: Boolean; // Auto Load Last Root Folder on start
 
       FPrevWinControl: TWinControl;
+
+      //For the "Game List" tab: advanced game list with media statuses
+      FRomsSortMode: Integer;
+      FRomsStatusMap: TDictionary<TGame, TGameMediaStatus>;
+
+      //Context menu (pmGameList) source: Lbx_Games or lbListRoms
+      FMenuSourceList: TListBox;
 
       //Pour le scrape
       FPictureLinks: TObjectList<TMediaInfo>;
@@ -399,6 +433,8 @@ type
       procedure FindGameRoms( const aSystem: string );
       procedure SaveGamelist(const FileName: string; aGameList: TObjectList<TGame>);
       procedure AddRomList(aRoms: TStrings);
+      procedure RefreshListRoms;
+      function GetGameMediaStatus( aGame: TGame ): TGameMediaStatus;
       procedure WMAutoLoad( var Msg: TMessage ); message WM_APP + 1;
 
 
@@ -663,6 +699,8 @@ begin
    Caption := Cst_AppName + ' v' + GetVersion;
    FIsWine := IsRunningUnderWine;
    CreateWindowsMediaPlayer;
+   FRomsSortMode:= 0;
+   FRomsStatusMap:= TDictionary<TGame, TGameMediaStatus>.Create;
    TranslateComponent( Self );
    FImgList:= TObjectList<TImage>.Create;
    FInfosList:= TStringList.Create( True );
@@ -736,7 +774,7 @@ begin
      //sinon la barre de progression ne serait pas visible pendant la charge
      PostMessage( Handle, WM_APP + 1, 0, 0 );
    end;
-   Lbx_Games.SetFocus;
+   lbListRoms.SetFocus;
 end;
 
 //Handler du chargement différé : déclenché après l'affichage de la fenêtre,
@@ -757,8 +795,11 @@ var
 begin
    if aLang then _CompName:= Cst_MenuLang + IntToStr( aNumber )
    else _CompName:= Cst_MenuTheme + IntToStr( aNumber );
-   _MenuItem:= ( FindComponent( _CompName ) as TMenuItem ) ;
-   _MenuItem.Checked:= True;
+   //The menu may have no item for this number (theme indices with
+   //gaps): we check to avoid an AV on nil.Checked
+   _MenuItem:= FindComponent( _CompName ) as TMenuItem;
+   if Assigned( _MenuItem ) then
+      _MenuItem.Checked:= True;
 end;
 
 //Action au click sur le menuitem "choose folder"
@@ -848,6 +889,13 @@ begin
 
    //On vide la liste globale des syst�mes (cas 2eme ouverture)
    GSystemList.Clear;
+
+   //The TGame objects are freed by GSystemList.Clear (doOwnsValues):
+   //we also purge the advanced list and its cache so we no longer keep stale
+   //pointers (otherwise there is an AV risk on the next repaint).
+   lbListRoms.Clear;
+   if Assigned( FRomsStatusMap ) then
+      FRomsStatusMap.Clear;
 
    //On met le compteur de dossiers valides � 0
    ValidFolderCount:= 0;
@@ -1519,6 +1567,9 @@ begin
          Lbl_NbGamesFound.Caption:= IntToStr( Lbx_Games.Items.Count ) + ' / ' +
                                     IntToStr( _TmpList.Count ) + Rst_GamesFound;
 
+      //On reconstruit la liste avanc�e des jeux (avec statuts m�dia)
+      RefreshListRoms;
+
       //On met le focus sur le premier jeu de la liste
       ClearAllFields;
 
@@ -1857,6 +1908,11 @@ end;
 
 //Action au click "change all missing to default"
 //Assigne l'image defaut du syst�me � tous les jeux qui n'ont pas d'image
+procedure TFrm_Editor.aFindDuplicatesExecute(Sender: TObject);
+begin
+  bFindDupesClick(self);
+end;
+
 procedure TFrm_Editor.aViewGameExecute(Sender: TObject);
 begin
   Pgc_Editor.ActivePage := Tbs_Main;
@@ -1893,6 +1949,266 @@ end;
 procedure TFrm_Editor.bScanFolderClick(Sender: TObject);
 begin
   FindGameRoms(getCurrentFolderName);
+end;
+
+//Detects which media types exist for a game.
+//Image/Video come from the gamelist.xml paths; the other types are looked up
+//in the <system>/media/<type> folder by ROM name.
+function TFrm_Editor.GetGameMediaStatus( aGame: TGame ): TGameMediaStatus;
+
+  function HasFileInFolder( const aTypeSubFolder: string ): Boolean;
+  var
+     TypeDir, SearchPath: string;
+     SR: TSearchRec;
+  begin
+     Result:= False;
+     TypeDir:= FRootPath + FCurrentFolder + Cst_MediaFolderName + '\' +
+               aTypeSubFolder;
+     if not DirectoryExists( TypeDir ) then Exit;
+     SearchPath:= TypeDir + '\' + aGame.RomNameWoExt + '.*';
+     if ( FindFirst( SearchPath, faAnyFile, SR ) = 0 ) then begin
+        Result:= True;
+        FindClose( SR );
+     end;
+  end;
+
+begin
+   Result.HasImage:= FileExists( aGame.PhysicalImagePath );
+   Result.HasVideo:= FileExists( aGame.PhysicalVideoPath );
+   Result.HasBox:= HasFileInFolder( Cst_MediaBoxSubFolder );
+   Result.HasManual:= HasFileInFolder( Cst_MediaManualSubFolder );
+   Result.HasWheel:= HasFileInFolder( Cst_MediaWheelSubFolder );
+   Result.HasTips:= HasFileInFolder( Cst_MediaTipsSubFolder );
+   Result.HasMap:= HasFileInFolder( Cst_MediaMapSubFolder );
+end;
+
+//Rebuilds the advanced game list (lbListRoms) of the current system,
+//sorted by FRomsSortMode, with media statuses.
+procedure TFrm_Editor.RefreshListRoms;
+var
+   _SystemList: TObjectList<TGame>;
+   _Game: TGame;
+   _Item: TGame;
+   _Items: TList<TGame>;
+begin
+   lbListRoms.Items.BeginUpdate;
+   try
+      lbListRoms.Clear;
+      if not GSystemList.TryGetValue( getCurrentFolderName, _SystemList ) then Exit;
+      if _SystemList = nil then Exit;
+
+      _Items:= TList<TGame>.Create;
+      if FRomsStatusMap = nil then
+         FRomsStatusMap:= TDictionary<TGame, TGameMediaStatus>.Create
+      else
+         FRomsStatusMap.Clear;
+      try
+         for _Game in _SystemList do begin
+            if _Game = nil then Continue;
+            _Items.Add( _Game );
+            //Compute the statuses only once to avoid repeated disk scans
+            FRomsStatusMap.AddOrSetValue( _Game, GetGameMediaStatus( _Game ) );
+         end;
+
+         //Sort by the selected mode (FRomsSortMode)
+         _Items.Sort( TComparer<TGame>.Construct(
+            function( const A, B: TGame ): Integer
+            var
+               SA, SB: TGameMediaStatus;
+            begin
+               case FRomsSortMode of
+                  1: Result:= CompareText( A.RomName, B.RomName );          // by file name
+                  2: begin                                                  // by image presence
+                        if not FRomsStatusMap.TryGetValue( A, SA ) then
+                           FillChar( SA, SizeOf( SA ), 0 );
+                        if not FRomsStatusMap.TryGetValue( B, SB ) then
+                           FillChar( SB, SizeOf( SB ), 0 );
+                        Result:= Ord( SA.HasImage ) - Ord( SB.HasImage );
+                        if Result = 0 then Result:= CompareText( A.Name, B.Name );
+                     end;
+                  3: begin                                                  // by video presence
+                        if not FRomsStatusMap.TryGetValue( A, SA ) then
+                           FillChar( SA, SizeOf( SA ), 0 );
+                        if not FRomsStatusMap.TryGetValue( B, SB ) then
+                           FillChar( SB, SizeOf( SB ), 0 );
+                        Result:= Ord( SA.HasVideo ) - Ord( SB.HasVideo );
+                        if Result = 0 then Result:= CompareText( A.Name, B.Name );
+                     end;
+                  4: begin                                                  // by description presence
+                        Result:= Ord( not A.Description.IsEmpty ) - Ord( not B.Description.IsEmpty );
+                        if Result = 0 then Result:= CompareText( A.Name, B.Name );
+                     end;
+               else
+                  Result:= CompareText( A.Name, B.Name );                   // 0: by game name
+               end;
+            end ) );
+
+         for _Item in _Items do
+            lbListRoms.Items.AddObject( _Item.Name, _Item );
+      finally
+         _Items.Free;
+      end;
+   finally
+      lbListRoms.Items.EndUpdate;
+   end;
+end;
+
+//Draws one row of the advanced list: name on the left, media statuses on the right.
+procedure TFrm_Editor.lbListRomsClick(Sender: TObject);
+begin
+   ClearAllFields;
+   EmptyScrapeFields;
+   if ( lbListRoms.SelCount > 1 ) then begin
+      EnableComponents( False );
+   end else begin
+      EnableComponents( True );
+      LoadGame( ( lbListRoms.Items.Objects[lbListRoms.ItemIndex] as TGame ) );
+   end;
+end;
+
+procedure TFrm_Editor.lbListRomsDrawItem(Control: TWinControl; Index: Integer;
+  Rect: TRect; State: TOwnerDrawState);
+var
+   LB: TListBox;
+   _Game: TGame;
+   _Status: TGameMediaStatus;
+   _TextWidth, _IconX: Integer;
+   _Glyphs: array[0..6] of record Ch: Char; Present: Boolean; end;
+   ii: Integer;
+   _ThemeText: TColor;
+begin
+LB:= Control as TListBox;
+   if ( Index < 0 ) or ( Index >= LB.Items.Count ) then Exit;
+
+//background + text: the colors (background and font) are already set by
+   //TCustomListBox.CNDrawItem according to the theme (scListBox / sfListItemTextNormal,
+   //clHighlight / sfListItemTextSelected). We only fill and draw,
+   //without rewriting those colors, which preserves the theme with no AV risk.
+   LB.Canvas.FillRect( Rect );
+   //text color set by CNDrawItem (theme): we keep it for the name
+   _ThemeText:= LB.Canvas.Font.Color;
+
+   _Game:= LB.Items.Objects[Index] as TGame;
+   if _Game = nil then Exit;
+
+   //media statuses (cached by RefreshListRoms to avoid disk scans)
+   if Assigned( FRomsStatusMap ) and FRomsStatusMap.TryGetValue( _Game, _Status ) then
+      { nothing: status retrieved }
+   else
+      _Status:= GetGameMediaStatus( _Game );
+   _Glyphs[0].Ch:= 'I'; _Glyphs[0].Present:= _Status.HasImage;
+   _Glyphs[1].Ch:= 'V'; _Glyphs[1].Present:= _Status.HasVideo;
+   _Glyphs[2].Ch:= 'B'; _Glyphs[2].Present:= _Status.HasBox;
+   _Glyphs[3].Ch:= 'M'; _Glyphs[3].Present:= _Status.HasManual;
+   _Glyphs[4].Ch:= 'W'; _Glyphs[4].Present:= _Status.HasWheel;
+   _Glyphs[5].Ch:= 'T'; _Glyphs[5].Present:= _Status.HasTips;
+   _Glyphs[6].Ch:= 'P'; _Glyphs[6].Present:= _Status.HasMap;
+
+   //draw the glyphs starting from the right
+   _IconX:= Rect.Right - 4;
+   for ii:= High( _Glyphs ) downto Low( _Glyphs ) do begin
+      _IconX:= _IconX - LB.Canvas.TextWidth( ' ' + _Glyphs[ii].Ch );
+      if _Glyphs[ii].Present then
+         LB.Canvas.Font.Color:= clGreen
+      else
+         LB.Canvas.Font.Color:= clGrayText;
+      LB.Canvas.TextOut( _IconX, Rect.Top, _Glyphs[ii].Ch );
+   end;
+
+   //game name on the left: theme font color (CNDrawItem)
+   if _Game.Color >= 0 then
+      LB.Canvas.Font.Color:= _Game.Color
+   else
+      LB.Canvas.Font.Color:= _ThemeText;
+   _TextWidth:= _IconX - Rect.Left - 6;
+   //truncate the name if needed
+   LB.Canvas.TextRect( TRect.Create( Rect.Left + 2, Rect.Top,
+                                     Rect.Left + 2 + _TextWidth, Rect.Bottom ),
+                       Rect.Left + 2, Rect.Top, LB.Items[Index] );
+end;
+
+//Selects the item under the cursor on right-click so the shared context menu
+//acts on the clicked game (right-click alone does not set ItemIndex).
+procedure TFrm_Editor.lbListRomsMouseDown(Sender: TObject; Button: TMouseButton;
+  Shift: TShiftState; X, Y: Integer);
+var
+   Idx: Integer;
+begin
+   if Button = mbRight then begin
+      Idx:= lbListRoms.ItemAtPos( Point( X, Y ), True );
+      if Idx >= 0 then
+         lbListRoms.ItemIndex:= Idx;
+   end;
+end;
+
+//Changes the sort of the advanced game list
+procedure TFrm_Editor.cbSortListChange(Sender: TObject);
+begin
+   FRomsSortMode:= cbSortList.ItemIndex;
+   if FRomsSortMode < 0 then FRomsSortMode:= 0;
+   RefreshListRoms;
+end;
+
+//Finds and highlights duplicates in the advanced game list
+procedure TFrm_Editor.bFindDupesClick(Sender: TObject);
+var
+   _SystemList: TObjectList<TGame>;
+   _CountByName: TDictionary<string, Integer>;
+   _CountByRom: TDictionary<string, Integer>;
+   _CountByCrc: TDictionary<string, Integer>;
+   _Game: TGame;
+   _Crc: string;
+   ii: Integer;
+begin
+   if not GSystemList.TryGetValue( getCurrentFolderName, _SystemList ) then Exit;
+   if _SystemList = nil then Exit;
+
+   _CountByName:= TDictionary<string, Integer>.Create;
+   _CountByRom:= TDictionary<string, Integer>.Create;
+   _CountByCrc:= TDictionary<string, Integer>.Create;
+   try
+      for _Game in _SystemList do begin
+         if _CountByName.ContainsKey( _Game.Name ) then
+            _CountByName[_Game.Name]:= _CountByName[_Game.Name] + 1
+         else
+            _CountByName.Add( _Game.Name, 1 );
+
+         if _CountByRom.ContainsKey( ExtractFileName( _Game.PhysicalRomPath ) ) then
+            _CountByRom[ExtractFileName( _Game.PhysicalRomPath )]:=
+               _CountByRom[ExtractFileName( _Game.PhysicalRomPath )] + 1
+         else
+            _CountByRom.Add( ExtractFileName( _Game.PhysicalRomPath ), 1 );
+
+         _Crc:= _Game.Crc32;
+         if not _Crc.IsEmpty then begin
+            if _CountByCrc.ContainsKey( _Crc ) then
+               _CountByCrc[_Crc]:= _CountByCrc[_Crc] + 1
+            else
+               _CountByCrc.Add( _Crc, 1 );
+         end;
+      end;
+
+      //Highlight the duplicates in lbListRoms (by name, file or CRC)
+      for ii:= 0 to Pred( lbListRoms.Items.Count ) do begin
+         _Game:= lbListRoms.Items.Objects[ii] as TGame;
+         if _Game = nil then Continue;
+         if ( _CountByName.ContainsKey( _Game.Name ) and
+              ( _CountByName[_Game.Name] > 1 ) ) or
+            ( _CountByRom.ContainsKey( ExtractFileName( _Game.PhysicalRomPath ) ) and
+              ( _CountByRom[ExtractFileName( _Game.PhysicalRomPath )] > 1 ) ) or
+            ( ( not _Game.Crc32.IsEmpty ) and _CountByCrc.ContainsKey( _Game.Crc32 ) and
+              ( _CountByCrc[_Game.Crc32] > 1 ) ) then
+            _Game.Color:= clRed
+         else
+            _Game.Color:= -1;
+      end;
+      lbListRoms.Invalidate;
+      mLog.Lines.Add( 'Duplicates highlighted (by name / file / CRC)' );
+   finally
+      _CountByName.Free;
+      _CountByRom.Free;
+      _CountByCrc.Free;
+   end;
 end;
 
 procedure TFrm_Editor.Btn_ChangeAllClick(Sender: TObject);
@@ -3580,14 +3896,40 @@ end;
 procedure TFrm_Editor.pm_RemoveFromListClick(Sender: TObject);
 var
   gameList: TObjectList<TGame>;
+  _Src: TListBox;
+  _Game: TGame;
 begin
-  if Lbx_Games.ItemIndex<0 then
-    exit;
+  //The context menu is shared by Lbx_Games and lbListRoms. The source list is
+  //the one that opened the menu: resolve it from the popup's PopupComponent
+  //at click time (fall back to the value recorded on OnPopup).
+  if pmGameList.PopupComponent is TListBox then
+     _Src:= pmGameList.PopupComponent as TListBox
+  else
+     _Src:= FMenuSourceList;
+  if _Src = nil then _Src:= Lbx_Games;
+  if _Src.ItemIndex < 0 then Exit;
+  _Game:= _Src.Items.Objects[_Src.ItemIndex] as TGame;
+  if _Game = nil then Exit;
+
   GSystemList.TryGetValue( getCurrentFolderName, gameList);
-  if Lbx_Games.Items[Lbx_Games.ItemIndex] = gameList[Lbx_Games.ItemIndex].Name then begin
-    gameList.Delete(Lbx_Games.ItemIndex);
-  end;
+  if gameList = nil then Exit;
+  //Remove the game object by reference (lbListRoms is sorted, so its index
+  //does not match the gameList order).
+  gameList.Remove( _Game );
   LoadGamesList( getCurrentFolderName );
+end;
+
+//Sets the source list of the shared context menu (Lbx_Games or lbListRoms)
+//from the popup that fired (Sender is the TPopupMenu itself).
+procedure TFrm_Editor.pmGameListPopup(Sender: TObject);
+var
+   _Comp: TComponent;
+begin
+   _Comp:= ( Sender as TPopupMenu ).PopupComponent;
+   if _Comp is TListBox then
+      FMenuSourceList:= _Comp as TListBox
+   else
+      FMenuSourceList:= nil;
 end;
 
 procedure TFrm_Editor.RemoveRegionFromGameName( aGame: TGame; aStartPos: Integer );
@@ -3633,6 +3975,7 @@ end;
 //choix du theme
 procedure TFrm_Editor.Mnu_ThemeClick(Sender: TObject);
 begin
+  Pgc_Editor.ActivePage := Tbs_Main;
    TStyleManager.TrySetStyle( Cst_ThemeNameStr[GetThemeEnum( ( Sender as TMenuItem).MenuIndex )] );
    FThemeNumber:= ( Sender as TMenuItem ).MenuIndex;
 end;
@@ -4456,8 +4799,8 @@ begin
    Img_Loading.Visible:= True;
    Refresh;
    Enabled:= False;
-   if ( Lbx_Games.Count > 0 ) then begin
-      FScrapedGame:= ( Lbx_Games.Items.Objects[Lbx_Games.ItemIndex] as TGame );
+   if ( lbListRoms.Count > 0 ) then begin
+      FScrapedGame:= ( lbListRoms.Items.Objects[lbListRoms.ItemIndex] as TGame );
       if GetGameXml( GetCurrentSystemId, FScrapedGame ) then begin
          ParseXml;
          GetPictures;
@@ -4558,6 +4901,7 @@ begin
    FImgList.Free;
    FInfosList.Free;
    FPictureLinks.Free;
+   FRomsStatusMap.Free;
    if not FIsWine then
       Wmp_Video.Free;
 
