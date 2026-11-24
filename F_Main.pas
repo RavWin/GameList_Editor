@@ -5,7 +5,7 @@ interface
 uses
    Winapi.Windows, Winapi.Messages, Winapi.ShellAPI,
    System.SysUtils, System.Variants, System.Classes, System.IniFiles, System.Generics.Collections,
-   System.RegularExpressions, System.UITypes, System.ImageList, System.StrUtils, System.IOUtils,
+   System.RegularExpressions, System.UITypes, System.ImageList, System.StrUtils, System.IOUtils, System.Math,
    System.SyncObjs, System.Generics.Defaults,
    Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.Styles, Vcl.Themes, Vcl.ImgList,
    Vcl.ExtCtrls, Vcl.Imaging.pngimage, Vcl.Imaging.jpeg, Vcl.Menus, Vcl.ComCtrls, Vcl.StdCtrls,
@@ -1589,15 +1589,38 @@ begin
    end;
 end;
 
-//Charge le logo du syst�me s�lectionn� dans le TImage pr�vu
+//Charge le logo du syst�me s�lectionn� dans le TImage pr�vu.
+//Priorit� aux images embarqu�es dans icSystems (pas de d�pendance aux
+//fichiers sur disque) ; en secours on charge depuis Resources\SystemsLogos.
 procedure TFrm_Editor.LoadSystemLogo( const aPictureName: string );
 var
    _Image: TPngImage;
+   _Bmp: TBitmap;
+
 begin
+   _Bmp:= nil;
+   try
+      if Assigned( icSystems ) and ( icSystems.GetIndexByName( aPictureName ) >= 0 ) then
+         _Bmp:= icSystems.GetBitmap( aPictureName,
+                                     Max( Img_System.Width, 1 ),
+                                     Max( Img_System.Height, 1 ) );
+   except
+      _Bmp:= nil;
+   end;
+
+   if Assigned( _Bmp ) then begin
+      try
+         Img_System.Picture.Assign( _Bmp );
+      finally
+         _Bmp.Free;
+      end;
+      Exit;
+   end;
+
    _Image:= TPngImage.Create;
    try
       _Image.LoadFromFile( ExtractFilePath( Application.ExeName ) +
-                           Cst_LogoPicsFolder + aPictureName );
+                           Cst_LogoPicsFolder + aPictureName + '.png' );
       Img_System.Picture.Graphic:= _Image;
    finally
       _Image.Free;
