@@ -239,8 +239,8 @@ type
     lbListRoms: TListBox;
     FindDuplicates: TMenuItem;
     aFindDuplicates: TAction;
-    viSystems: TVirtualImageList;
     icSystems: TImageCollection;
+    icDefault: TImageCollection;
 
       procedure FormCreate(Sender: TObject);
       procedure FormDestroy(Sender: TObject);
@@ -376,6 +376,7 @@ type
       procedure EnableComponents( aValue: Boolean );
       procedure CheckIfChangesToSave;
       procedure ChangeImage( const aPath: string; aGame: TGame );
+       procedure ApplyGameImage( aGame: TGame );
       procedure ChangeVideo( const aPath: string; aGame: TGame );
       procedure LoadSystemLogo( const aPictureName: string );
       procedure DeleteGame( aGame: TGame; reloadGameList: Boolean = True );
@@ -713,6 +714,8 @@ begin
    FPiLoadedOnce:= False;
    FTempXmlPath:= ExtractFilePath( Application.ExeName ) + Cst_TempXml;
    CounterGuard:= TCriticalSection.Create;
+//   Img_System.Picture.Assign(icSystems.Images[3].SourceImages[0].Image);
+//   Application.ProcessMessages;
 end;
 
 procedure TFrm_Editor.CreateWindowsMediaPlayer;
@@ -1590,41 +1593,18 @@ begin
 end;
 
 //Charge le logo du syst�me s�lectionn� dans le TImage pr�vu.
-//Priorit� aux images embarqu�es dans icSystems (pas de d�pendance aux
-//fichiers sur disque) ; en secours on charge depuis Resources\SystemsLogos.
 procedure TFrm_Editor.LoadSystemLogo( const aPictureName: string );
 var
-   _Image: TPngImage;
-   _Bmp: TBitmap;
-
+    idxImage: Integer;
 begin
-   _Bmp:= nil;
-   try
-      if Assigned( icSystems ) and ( icSystems.GetIndexByName( aPictureName ) >= 0 ) then
-         _Bmp:= icSystems.GetBitmap( aPictureName,
-                                     Max( Img_System.Width, 1 ),
-                                     Max( Img_System.Height, 1 ) );
-   except
-      _Bmp:= nil;
-   end;
-
-   if Assigned( _Bmp ) then begin
-      try
-         Img_System.Picture.Assign( _Bmp );
-      finally
-         _Bmp.Free;
-      end;
-      Exit;
-   end;
-
-   _Image:= TPngImage.Create;
-   try
-      _Image.LoadFromFile( ExtractFilePath( Application.ExeName ) +
-                           Cst_LogoPicsFolder + aPictureName + '.png' );
-      Img_System.Picture.Graphic:= _Image;
-   finally
-      _Image.Free;
-   end;
+    if Assigned( icSystems ) then begin
+       idxImage:= icSystems.GetIndexByName( aPictureName );
+       if idxImage >= 0 then begin
+          Img_System.Picture.Assign( icSystems.Images[idxImage].SourceImages[0].Image );
+          Exit;
+       end;
+    end;
+    Img_System.Picture.Graphic:= nil;
 end;
 
 //Click sur un jeu dans la liste
@@ -1869,7 +1849,7 @@ begin
       _Game:= ( Lbx_Games.Items.Objects[Lbx_Games.ItemIndex] as TGame );
       ChangeImage( OpenFile.FileName, _Game );
       LoadGame( _Game );
-      Lbx_Games.SetFocus;
+      lbListRoms.SetFocus;
    end;
 end;
 
@@ -1882,34 +1862,30 @@ begin
       _Game:= ( Lbx_Games.Items.Objects[Lbx_Games.ItemIndex] as TGame );
       ChangeVideo( OpenFile.FileName, _Game );
       LoadGame( _Game );
-      Lbx_Games.SetFocus;
+      lbListRoms.SetFocus;
    end;
 end;
 
-//Action au click sur bouton "change picture to default"
-//Change l'image actuelle du jeu s�lectionn� pour celle par d�faut
+//Set the game picture to the default image (from icDefault)
 procedure TFrm_Editor.Btn_SetDefaultPictureClick(Sender: TObject);
 var
-   PathToDefault: string;
-   _Game: TGame;
+    _Game: TGame;
+    _Bmp: TBitmap;
 begin
-   _Game:= ( Lbx_Games.Items.Objects[Lbx_Games.ItemIndex] as TGame );
+    _Game:= ( Lbx_Games.Items.Objects[Lbx_Games.ItemIndex] as TGame );
 
-   //On construit le lien vers l'image d�faut selon le syst�me
-   PathToDefault:= ExtractFilePath(Application.ExeName) +
-                   Cst_DefaultPicsFolderPath +
-                   getCurrentFolderName +
-                   Cst_DefaultImageNameSuffix;
+    _Bmp:= icDefault.GetBitmap( 'default',
+                                Max( Img_Game.Width, 1 ),
+                                Max( Img_Game.Height, 1 ) );
+    try
+       Img_Game.Picture.Assign( _Bmp );
+    finally
+       _Bmp.Free;
+    end;
 
-   //si l'image defaut du systeme n'existe pas on prend la g�n�rique
-   if not FileExists( PathToDefault ) then
-      PathToDefault:= ExtractFilePath(Application.ExeName) +
-                      Cst_DefaultPicsFolderPath +
-                      Cst_DefaultImageName;
-
-   ChangeImage( PathToDefault, _Game );
-   LoadGame( _Game );
-   Lbx_Games.SetFocus;
+    ApplyGameImage( _Game );
+    LoadGame( _Game );
+    lbListRoms.SetFocus;
 end;
 
 procedure TFrm_Editor.AddRomList(aRoms: TStrings);
@@ -2234,111 +2210,102 @@ begin
    end;
 end;
 
+//Set all game pictures to the default image (from icDefault)
 procedure TFrm_Editor.Btn_ChangeAllClick(Sender: TObject);
 var
-   ii: Integer;
-   PathToDefault: string;
-   _Game: TGame;
+    ii: Integer;
+    _Game: TGame;
+    _Bmp: TBitmap;
 begin
-   //On construit le lien vers l'image d�faut selon le syst�me
-   PathToDefault:= ExtractFilePath(Application.ExeName) +
-                   Cst_DefaultPicsFolderPath + '\' +
-                   getCurrentFolderName +
-                   Cst_DefaultImageNameSuffix;
+    _Bmp:= icDefault.GetBitmap( 'default',
+                                Max( Img_Game.Width, 1 ),
+                                Max( Img_Game.Height, 1 ) );
 
-    //si l'image defaut du systeme n'existe pas on prend la g�n�rique
-    if not FileExists( PathToDefault ) then
-       PathToDefault:= ExtractFilePath(Application.ExeName) +
-                       Cst_DefaultPicsFolderPath + '\' +
-                       Cst_DefaultImageName;
+    ProgressBar.Visible:= True;
+    ProgressBar.Max:= Pred( Lbx_Games.Items.Count );
+    ProgressBar.Position:= 0;
+    for ii:= 0 to Pred( Lbx_Games.Items.Count ) do begin
+       _Game:= ( Lbx_Games.Items.Objects[ii] as TGame );
+       Img_Game.Picture.Assign( _Bmp );
+       ApplyGameImage( _Game );
+       ProgressBar.Position:= ( ProgressBar.Position + 1 );
+    end;
+    ProgressBar.Visible:= False;
 
-   //et on boucle sur tous les jeux de la liste pour remplacer l'image
-   ProgressBar.Visible:= True;
-   ProgressBar.Max:= Pred( Lbx_Games.Items.Count );
-   ProgressBar.Position:= 0;
-   for ii:= 0 to Pred( Lbx_Games.Items.Count ) do begin
-      _Game:= ( Lbx_Games.Items.Objects[ii] as TGame );
-      ChangeImage( PathToDefault, _Game );
-      ProgressBar.Position:= ( ProgressBar.Position + 1 );
-   end;
-   ProgressBar.Visible:= False;
-   LoadGamesList( getCurrentFolderName );
-   Lbx_Games.SetFocus;
+    _Bmp.Free;
+    LoadGamesList( getCurrentFolderName );
+    lbListRoms.SetFocus;
 end;
 
 //Remplace l'image actuelle du jeu (par autre ou d�faut).
 procedure TFrm_Editor.ChangeImage( const aPath: string; aGame: TGame );
 var
-   _Image: TPngImage;
-   _ImageJpg: TJPEGImage;
-   _ImageLink: string;
-   _Node: IXMLNode;
-   _NodeAdded: Boolean;
+    _Image: TPngImage;
+    _ImageJpg: TJPEGImage;
 begin
-   _NodeAdded:= False;
-   Screen.Cursor:= crHourGlass;
+    if ( ExtractFileExt( aPath ) = '.png' ) then begin
+       _Image:= TPngImage.Create;
+       try
+          _Image.LoadFromFile( aPath );
+          Img_Game.Picture.Graphic:= _Image;
+       finally
+          _Image.Free;
+       end;
+    end else begin
+       _ImageJpg:= TJPEGImage.Create;
+       try
+          _ImageJpg.LoadFromFile( aPath );
+          Img_Game.Picture.Graphic:= _ImageJpg;
+       finally
+          _ImageJpg.Free;
+       end;
+    end;
 
-   //on d�termine ensuite l'extension du fichier charg� et
-   //on cr�e l'objet qui va bien pour affecter au TImage
-   if ( ExtractFileExt( aPath ) = '.png' ) then begin
-      _Image:= TPngImage.Create;
-      try
-         _Image.LoadFromFile( aPath );
-         Img_Game.Picture.Graphic:= _Image;
-      finally
-         _Image.Free;
-      end;
-   end else begin
-      _ImageJpg:= TJPEGImage.Create;
-      try
-         _ImageJpg.LoadFromFile( aPath );
-         Img_Game.Picture.Graphic:= _ImageJpg;
-      finally
-         _ImageJpg.Free;
-      end;
-   end;
+    ApplyGameImage( aGame );
+end;
 
-   //on sauvegarde l'image dans le dossier avec les autres !!
-   // et on ajoute le chemin dans le xml
-   Img_Game.Picture.SaveToFile( FRootPath + FCurrentFolder + FImageFolder +
-                                '\' + aGame.RomNameWoExt + Cst_ImageSuffixPng );
+procedure TFrm_Editor.ApplyGameImage( aGame: TGame );
+var
+    _Node: IXMLNode;
+    _NodeAdded: Boolean;
+    _ImageLink: string;
+begin
+    Screen.Cursor:= crHourGlass;
 
-   //On ouvre le fichier xml
-   XMLDoc.LoadFromFile( FRootPath + FCurrentFolder + Cst_GameListFileName );
+    Img_Game.Picture.SaveToFile( FRootPath + FCurrentFolder + FImageFolder +
+                                 '\' + aGame.RomNameWoExt + Cst_ImageSuffixPng );
 
-   //On r�cup�re le premier noeud "game"
-   _Node := XMLDoc.DocumentElement.ChildNodes.FindNode( Cst_Game );
+    XMLDoc.LoadFromFile( FRootPath + FCurrentFolder + Cst_GameListFileName );
 
-   //Et on boucle pour trouver le noeud avec le bon Id
-   repeat
-      if ( _Node.ChildNodes.Nodes[Cst_Path].Text = aGame.RomPath ) then Break;
-      _Node := _Node.NextSibling;
-   until not Assigned( _Node );
+    _Node := XMLDoc.DocumentElement.ChildNodes.FindNode( Cst_Game );
 
-   //on �crit le chemin vers l'image
-   _ImageLink:= FImageFolder + aGame.RomNameWoExt + Cst_ImageSuffixPng;
+    repeat
+       if ( _Node.ChildNodes.Nodes[Cst_Path].Text = aGame.RomPath ) then Break;
+       _Node := _Node.NextSibling;
+    until not Assigned( _Node );
 
-   if not Assigned( _Node.ChildNodes.FindNode( Cst_ImageLink ) ) then begin
-      _Node.AddChild( Cst_ImageLink );
-      _NodeAdded:= True;
-   end;
-   _Node.ChildNodes.Nodes[Cst_ImageLink].Text:= _ImageLink;
+    _ImageLink:= FImageFolder + aGame.RomNameWoExt + Cst_ImageSuffixPng;
 
-   //On enregistre le fichier.
-   if _NodeAdded then begin
-      XMLDoc.XML.Text:= Xml.Xmldoc.FormatXMLData( XMLDoc.XML.Text );
-      XMLDoc.Active:= True;
-   end;
-   XMLDoc.SaveToFile( FRootPath + FCurrentFolder + Cst_GameListFileName );
-   XMLDoc.Active:= False;
+    _NodeAdded:= False;
+    if not Assigned( _Node.ChildNodes.FindNode( Cst_ImageLink ) ) then begin
+       _Node.AddChild( Cst_ImageLink );
+       _NodeAdded:= True;
+    end;
+    _Node.ChildNodes.Nodes[Cst_ImageLink].Text:= _ImageLink;
 
-   //Et enfin on met � jour l'objet TGame associ�
-   aGame.ImagePath:= _ImageLink;
-   aGame.PhysicalImagePath:= FRootPath + FCurrentFolder +
-                             IncludeTrailingPathDelimiter( FImageFolder ) +
-                             aGame.RomNameWoExt + Cst_ImageSuffixPng;
+    if _NodeAdded then begin
+       XMLDoc.XML.Text:= Xml.Xmldoc.FormatXMLData( XMLDoc.XML.Text );
+       XMLDoc.Active:= True;
+    end;
+    XMLDoc.SaveToFile( FRootPath + FCurrentFolder + Cst_GameListFileName );
+    XMLDoc.Active:= False;
 
-   Screen.Cursor:= crDefault;
+    aGame.ImagePath:= _ImageLink;
+    aGame.PhysicalImagePath:= FRootPath + FCurrentFolder +
+                              IncludeTrailingPathDelimiter( FImageFolder ) +
+                              aGame.RomNameWoExt + Cst_ImageSuffixPng;
+
+    Screen.Cursor:= crDefault;
 end;
 
 // Replace the video of a game.
@@ -2403,13 +2370,13 @@ end;
 procedure TFrm_Editor.Btn_RemovePictureClick(Sender: TObject);
 begin
    DeleteGamePicture;
-   Lbx_Games.SetFocus;
+   lbListRoms.SetFocus;
 end;
 
 procedure TFrm_Editor.Btn_RemoveVideoClick(Sender: TObject);
 begin
    DeleteGameVideo;
-   Lbx_Games.SetFocus;
+   lbListRoms.SetFocus;
 end;
 
 //Supprime l'image d'un jeu (dans le xml et physiquement)
@@ -2561,7 +2528,7 @@ begin
       SaveChangesToGamelist( False, False, False, True );
       
    Btn_SaveChanges.Enabled:= False;
-//   Lbx_Games.SetFocus;
+//   lbListRoms.SetFocus;
    if Assigned( FPrevWinControl ) then
       FPrevWinControl.SetFocus;
 end;
@@ -3323,7 +3290,7 @@ begin
       //et on charge les infos du jeu (si liste non vide)
       if ( Lbx_Games.Count > 0 ) then
          LoadGame( ( Lbx_Games.Items.Objects[Lbx_Games.ItemIndex] as TGame ) );
-      Lbx_Games.SetFocus;
+      lbListRoms.SetFocus;
       Lbx_Games.Selected[Lbx_Games.ItemIndex]:= True;
       if ( Lbx_Games.ItemIndex > 0 ) then Lbx_Games.Selected[0]:= False;
    end;
@@ -3875,7 +3842,7 @@ begin
    finally
       MoreInfos.Free;
    end;
-   Lbx_Games.SetFocus;
+   lbListRoms.SetFocus;
 end;
 
 //click sur le menu item remove region from games names
@@ -3906,7 +3873,7 @@ begin
    LoadGamesList( getCurrentFolderName );
    ProgressBar.Visible:= False;
    Screen.Cursor:= crDefault;
-   Lbx_Games.SetFocus;
+   lbListRoms.SetFocus;
 end;
 
 //au click sur le menu item ShowTips at start

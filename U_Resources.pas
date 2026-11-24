@@ -396,7 +396,7 @@ const
    Cst_DefaultImageNameSuffix = '-default.png';
    Cst_DefaultImageName = 'default.png';
    Cst_LogoPicsFolder = 'Resources\SystemsLogos\';
-   Cst_IniFilePath = 'Resources\Settings.ini';
+   Cst_IniFilePath = 'Settings.ini';
    Cst_ResourcesFolder = 'Resources\';
    Cst_TxtExtension = '.txt';
 
