@@ -1239,6 +1239,7 @@ object Frm_Editor: TFrm_Editor
             Hint = 'Image, Video, Box, Manual, Wheel, Tips and Tricks, Map'
             Style = lbOwnerDrawFixed
             Align = alClient
+            MultiSelect = True
             PopupMenu = pmGameList
             TabOrder = 2
             OnClick = lbListRomsClick
@@ -17925,34 +17926,7 @@ object Frm_Editor: TFrm_Editor
           TabOrder = 6
           OnClick = bFindDupesClick
         end
-        object Lbx_Games: TListBox
-          AlignWithMargins = True
-          Left = 4
-          Top = 4
-          Width = 212
-          Height = 776
-          Margins.Left = 4
-          Margins.Top = 4
-          Margins.Right = 4
-          Margins.Bottom = 4
-          Style = lbOwnerDrawVariable
-          Align = alLeft
-          DoubleBuffered = False
-          Font.Charset = DEFAULT_CHARSET
-          Font.Color = clCream
-          Font.Height = -11
-          Font.Name = 'Tahoma'
-          Font.Style = []
-          ItemHeight = 13
-          MultiSelect = True
-          ParentDoubleBuffered = False
-          ParentFont = False
-          PopupMenu = pmGameList
-          TabOrder = 7
-          OnClick = Lbx_GamesClick
-          OnDrawItem = Lbx_GamesDrawItem
         end
-      end
     end
   end
   object XMLDoc: TXMLDocument
