@@ -24,7 +24,7 @@ type
       procedure Btn_CloseClick(Sender: TObject);
       procedure FormCreate(Sender: TObject);
    private
-      { Déclarations privées }
+      { Private declarations }
    public
       procedure Execute;
    end;
@@ -85,23 +85,23 @@ begin
    inherited;
 end;
 
-//au create on ajoute le texte au RichEdit
+//on create we add the text to the RichEdit
 procedure TFrm_About.FormCreate(Sender: TObject);
 begin
    TranslateComponent( Self );
    Red_About.Lines.Add( Rst_Text );
 end;
 
-//Execute l'affichage de la fenêtre
+//Shows the window
 procedure TFrm_About.Execute;
 begin
    ShowModal;
 end;
 
-//Action au click sur le bouton close
+//Action when the close button is clicked
 procedure TFrm_About.Btn_CloseClick(Sender: TObject);
 begin
-   //Ferme la fenêtre
+   //Closes the window
    Close;
 end;
 

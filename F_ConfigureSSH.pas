@@ -23,7 +23,7 @@ type
       procedure FormShow(Sender: TObject);
       procedure FormCreate(Sender: TObject);
    private
-    { Déclarations privées }
+    { Private declarations }
    public
       function Execute( var aRecalLogin, aRecalPwd, aRetroLogin, aRetroPwd: string ): Boolean;
    end;
@@ -32,7 +32,7 @@ implementation
 
 {$R *.dfm}
 
-//On passe les paramètres en var pour récupérer les changements directement
+//We pass the parameters by var to retrieve the changes directly
 function TFrm_ConfigureSSH.Execute( var aRecalLogin, aRecalPwd, aRetroLogin, aRetroPwd: string ): Boolean;
 begin
    Edt_RecalLogin.Text:= aRecalLogin;
@@ -44,8 +44,8 @@ begin
 
    Result:= ( ModalResult = mrOk );
 
-   //si on a cliqué sur Ok, on change les valeurs des paramètres
-   //pour renvoyer dans la fenêtre principale
+   //if we clicked OK, we update the parameter values
+   //to send them back to the main window
    if Result then begin
       aRecalLogin:= Edt_RecalLogin.Text;
       aRecalPwd:= Edt_RecalPwd.Text;
@@ -59,7 +59,7 @@ begin
    TranslateComponent( Self );
 end;
 
-//à lapparition de la fenêtre on met le focus sur cancel
+//when the window appears, we put the focus on cancel
 procedure TFrm_ConfigureSSH.FormShow(Sender: TObject);
 begin
    Btn_Cancel.SetFocus;

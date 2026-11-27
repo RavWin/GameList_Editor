@@ -71,7 +71,7 @@ begin
             Exit;
          end;
          Stream.Position:= 0;
-         //on crée le graphic qui va bien en fonction de l'extension
+         //creates the appropriate graphic depending on the extension
          if ( Ext = Cst_PngExt ) then Graph:= TPngImage.Create
          else Graph:= TJPEGImage.create;
          Graph.LoadFromStream( Stream );

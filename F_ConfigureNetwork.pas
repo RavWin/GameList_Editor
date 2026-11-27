@@ -83,7 +83,7 @@ begin
    Close;
 end;
 
-//Enregistrement des paramètres dans le fichier INI
+//Saves the parameters to the INI file
 procedure TFrm_Network.SaveToIni;
 var
    FileIni: TIniFile;

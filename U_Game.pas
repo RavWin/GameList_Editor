@@ -9,8 +9,8 @@ uses
    U_Resources;
 
 type
-   //Objet stockant uniquement le type système (enum) pour
-   //combobox systems, permet de retrouver facile l'image et le nom du systeme
+   //Object storing only the system type (enum) for
+   //systems combobox, making it easy to find the image and name of the system
    TSystemKindObject = class
    public
       FSystemKind: TSystemKind;
@@ -96,7 +96,7 @@ type
 
 implementation
 
-//Constructeur object SystemKindObject
+//Constructor of the SystemKindObject
 constructor TSystemKindObject.Create( const aName: string );
 var
    _systemKind: TSystemKind;
@@ -110,7 +110,7 @@ begin
    end;
 end;
 
-//Constructeur de l'objet TGame
+//Constructor of the TGame object
 constructor TGame.Create( aPath, aName, aDescription, aImagePath, aVideoPath,
                           aRating, aDeveloper, aPublisher, aGenre, aPlayers, aDate,
                           aRegion, aPlaycount, aLastplayed, aKidGame, aHidden, aFavorite: string );
@@ -121,7 +121,7 @@ begin
          aLastplayed, aKidGame, aHidden, aFavorite );
 end;
 
-//Chargement des attributs dans l'objet TGame
+//Loading the attributes into the TGame object
 procedure TGame.Load( aPath, aName, aDescription, aImagePath, aVideoPath, aRating,
                       aDeveloper, aPublisher, aGenre, aPlayers, aDate,
                       aRegion, aPlaycount, aLastplayed, aKidGame, aHidden, aFavorite: string );
@@ -150,7 +150,7 @@ begin
    else FFavorite:= 0;
 end;
 
-//Fonction permettant de récupérer le nom de la rom avec son extension
+//Function to retrieve the rom name with its extension
 function TGame.GetRomName( const aRomPath: string ): string;
 var
    _Pos: Integer;
@@ -159,7 +159,7 @@ begin
    Result:= Copy( aRomPath, Succ( _Pos ), ( aRomPath.Length - _Pos ) );
 end;
 
-//Fonction permettant de récupérer le MD5 des roms
+//Function to retrieve the MD5 of the roms
 function TGame.CalculateMd5( const aFileName: string ): string;
 var
    IdMD5: TIdHashMessageDigest5;
@@ -177,7 +177,7 @@ begin
    end;
 end;
 
-//fonction permettant de récupérer le SHA1 des roms
+//function to retrieve the SHA1 of the roms
 function TGame.CalculateSha1( const aFileName: string ): string;
 var
    IdSHA1: TIdHashSHA1;
@@ -195,7 +195,7 @@ begin
    end;
 end;
 
-//fonction permettant de récupérer le SHA1 des roms
+//function to retrieve the CRC32 of the roms
 function TGame.CalculateCrc32( const aFileName: string ): string;
 var
    IdCRC32: TIdHashCRC32;

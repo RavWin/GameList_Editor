@@ -33,7 +33,7 @@ implementation
 
 procedure TFrm_MoreInfos.Execute( aGame: TGame );
 begin
-   //on remplit les champs
+   //we fill the fields
    Edt_Playcount.Text:= aGame.PlayCount;
    if not aGame.Lastplayed.IsEmpty then
       Edt_LastPlayed.Text:= FormatDateTime('dd/mm/yyyy hh:mm:ss' , ISO8601ToDate( aGame.Lastplayed ) )
@@ -42,7 +42,7 @@ begin
    Edt_Md5.Text:= aGame.Md5;
    Edt_Sha1.Text:= aGame.Sha1;
 
-   //affichage en modal de la fenêtre
+   //displays the window modally
    ShowModal;
 end;
 
@@ -53,7 +53,7 @@ end;
 
 procedure TFrm_MoreInfos.Btn_CloseClick(Sender: TObject);
 begin
-   //Ferme la fenêtre
+   //Closes the window
    Close;
 end;
 

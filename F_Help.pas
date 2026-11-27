@@ -33,7 +33,7 @@ begin
    Result:= not ( Chk_ShowTips.Checked );
 end;
 
-//remplit le richedit avec le texte de l'aide en mettant couleur etc..
+//fills the richedit with the help text, setting colors etc..
 procedure TFrm_Help.FormatText;
 begin
    with Red_Help do begin
@@ -197,7 +197,7 @@ begin
    TranslateComponent( Self );
 end;
 
-//action au click sur le bouton close
+//action when the close button is clicked
 procedure TFrm_Help.Btn_CloseClick(Sender: TObject);
 begin
    Close;

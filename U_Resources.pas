@@ -120,8 +120,27 @@ resourcestring
 
    Rst_Yes = 'Yes';
    Rst_No = 'No';
+   Rst_Cancel = 'Cancel';
    Rst_Ok = 'Ok';
    Rst_Info = 'Information';
+
+Rst_SaveChanges = 'The GameList has been modified.' + sLineBreak +
+                      'Do you want to save the changes before continuing ?';
+
+   Rst_CreateFolder = 'The folder does not exist yet.' + sLineBreak +
+                      'Do you want to create it ?';
+   Rst_CreateFolderError = 'Error while creating the folder:';
+
+   Rst_ScrapeBatchDone = 'Scraping finished: %d game(s) updated.';
+   Rst_FindImageDone = 'Image search finished: %d game(s) updated.';
+   Rst_FindVideoDone = 'Video search finished: %d game(s) updated.';
+
+   Rst_FindStaleDone = 'Selected %d stale record(s) (game(s) without a rom file).' + sLineBreak +
+                       'You can now delete them with "Delete selected game(s)".';
+
+   Rst_NoStaleRecord = 'No stale record found: every game has a rom file.';
+
+   Rst_FileNameToGameName = 'Use file name as game name';
    Rst_ServerError1 = 'URL missing parameters';
    Rst_ServerError2 = 'API closed for non subscriber users';
    Rst_ServerError3 = 'Dev login error';
@@ -132,13 +151,14 @@ resourcestring
    Rst_ServerError8 = 'Check your Internet/Proxy parameters';
    Rst_StreamError = 'Oops !! An error has occured while reading the stream !!';
 
-   //noms des systemes tels qu'ils seront affichés dans la combobox
+   //system names as they will be displayed in the combobox
    Rst_SystemKindNES = 'Nintendo';
    Rst_SystemKindSNES = 'Super Nintendo';
    Rst_SystemKindMS = 'Master System';
    Rst_SystemKindMD = 'MegaDrive';
    Rst_SystemKindNEOGEO = 'Neo Geo';
    Rst_SystemKindCPC = 'Amstrad CPC';
+   Rst_SystemKindAT800 = 'Atari 800';
    Rst_SystemKindAT2600 = 'Atari 2600';
    Rst_SystemKindAT7800 = 'Atari 7800';
    Rst_SystemKindATST = 'Atari ST';
@@ -212,13 +232,14 @@ resourcestring
    Rst_SystemKindOther = 'Other';
 
 type
-   //enumération pour les différents systèmes
+   //enumeration for the different systems
    TSystemKind = ( skNES,
                    skSNES,
                    skMasterSystem,
                    skMegaDrive,
                    skNeoGeo,
                    skCPC,
+                   skAT800,
                    skAT2600,
                    skAT7800,
                    skATST,
@@ -297,7 +318,7 @@ type
                    skOther
                    );
 
-   //enum noms des themes
+   //enum theme names
    TThemeName = ( tnAmakrits,
                   tnAquaGraphite,
                   tnAquaLightSlate,
@@ -316,14 +337,14 @@ type
                   tnWindows10Dark,
                   tnWindowsBasic );
 
-   //enum pour les langues
+   //enum for languages
    TLangName = ( lnFrench,
                  lnGerman,
                  lnEnglish,
                  lnSpanish,
                  lnPortuguese_BR );
 
-   //enum pour les pays
+   //enum for countries
    TCountryName = ( cnUnd,
                     cnDe,
                     cnAsi,
@@ -452,7 +473,7 @@ const
    Cst_True = 'true';
    Cst_False = 'false';
 
-   //Constantes pour le scrape
+   //Constants for the scrape
    Cst_ScraperAddress = 'https://www.screenscraper.fr/api2/';
    Cst_Category = 'jeuInfos.php';
    Cst_ScrapeLogin = '?devid=NeeeeB';
@@ -498,7 +519,7 @@ const
    Cst_MediaWheel = 'wheel';
    Cst_MediaVideo = 'video';
 
-   //tableau de liaison enum themes / noms themes
+   //enum theme names / theme names lookup table
    Cst_ThemeNameStr: array[TThemeName] of string =
       ( 'Amakrits',
         'Aqua Graphite',
@@ -518,7 +539,7 @@ const
         'Windows10 Dark',
         'Windows' );
 
-   //tableau de liaison enum langues / noms langues
+   //enum language / language names lookup table
    Cst_LangNameStr: array[TLangName] of string =
       ( 'fr',
         'de',
@@ -526,7 +547,7 @@ const
         'es',
         'pt_BR' );
 
-   //tableau de liaison enum systemes / noms systems affichés
+   //enum system / displayed system names lookup table
    Cst_SystemKindStr: array[TSystemKind] of string =
       ( Rst_SystemKindNES,
         Rst_SystemKindSNES,
@@ -534,6 +555,7 @@ const
         Rst_SystemKindMD,
         Rst_SystemKindNEOGEO,
         Rst_SystemKindCPC,
+        Rst_SystemKindAT800,
         Rst_SystemKindAT2600,
         Rst_SystemKindAT7800,
         Rst_SystemKindATST,
@@ -612,7 +634,7 @@ const
         Rst_SystemKindOther
         );
 
-   //tableau de liaison enum systemes/nom des dossiers systeme
+   //enum system / system folder names lookup table
    Cst_SystemKindFolderNames: array[TSystemKind] of string =
       ( 'nes',
         'snes',
@@ -620,6 +642,7 @@ const
         'megadrive',
         'neogeo',
         'amstradcpc',
+        'atari800',
         'atari2600',
         'atari7800',
         'atarist',
@@ -698,7 +721,7 @@ const
         ''
          );
 
-   //tableau de liaison enum systemes/nom image systeme
+   //enum system / system image name lookup table
    Cst_SystemKindImageNames: array[TSystemKind] of string =
       ( 'nes',
         'snes',
@@ -706,6 +729,7 @@ const
         'megadrive',
         'neogeo',
         'amstradcpc',
+        'atari800',
         'atari2600',
         'atari7800',
         'atarist',
@@ -787,7 +811,7 @@ const
    // Screenscraper.fr system IDs, retrieved with this URL:
    // https://www.screenscraper.fr/api2/systemesListe.php?devid=xxx&devpassword=yyy&softname=zzz&output=XML&ssid=test&sspassword=test
    Cst_SystemKindId: array[TSystemKind] of string =
-      ( '3', '4', '2', '1', '75', '65', '26', '41', '42', '138', '106', '75',
+      ( '3', '4', '2', '1', '75', '65', '43', '26', '41', '42', '138', '106', '75',
         '75', '52', '10', '21', '9', '12', '75', '28', '75', '113', '113',
         '113', '25', '82', '14', '104', '31', '114', '57', '135', '123',
         '19', '20', '109', '105', '102', '11', '45', '46', '76', '77', '64',

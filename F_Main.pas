@@ -41,6 +41,7 @@ type
       Tbs_Main: TTabSheet;
       Tbs_Scrape: TTabSheet;
       ProgressBar: TProgressBar;
+      ProgressBarScrape: TProgressBar;
       XMLDoc: TXMLDocument;
       OpenDialog: TFileOpenDialog;
       MainMenu: TMainMenu;
@@ -55,6 +56,7 @@ type
       Mnu_DeleteOrphans: TMenuItem;
       Mnu_DeleteDuplicates: TMenuItem;
       Mnu_ExportTxt: TMenuItem;
+      Mnu_ReloadGameList: TMenuItem;
       Mnu_Game: TMenuItem;
       Mnu_GaLowerCase: TMenuItem;
       Mnu_GaUpperCase: TMenuItem;
@@ -210,6 +212,7 @@ type
     bScrape: TButton;
     pmGameList: TPopupMenu;
     pm_RemoveFromList: TMenuItem;
+    pm_FindStale: TMenuItem;
     pm_FindImage: TMenuItem;
     pm_FindVideo: TMenuItem;
     alMain: TActionList;
@@ -236,6 +239,7 @@ type
     pm_ChangeVideo: TMenuItem;
     pm_RemoveVideo: TMenuItem;
     lbListRoms: TListBox;
+    pm_FileNameToGameName: TMenuItem;
     FindDuplicates: TMenuItem;
     aFindDuplicates: TAction;
     icSystems: TImageCollection;
@@ -284,6 +288,7 @@ type
       procedure Chk_ListByRomClick(Sender: TObject);
       procedure Mnu_NameEditorClick(Sender: TObject);
       procedure Mnu_ExportTxtClick(Sender: TObject);
+      procedure Mnu_ReloadGameListClick(Sender: TObject);
       procedure Chk_FullRomNameClick(Sender: TObject);
       procedure Tbs_ScrapeShow(Sender: TObject);
       procedure Tbs_ScrapeHide(Sender: TObject);
@@ -308,6 +313,7 @@ type
     procedure bScanFolderClick(Sender: TObject);
     procedure bAddToListClick(Sender: TObject);
     procedure pm_RemoveFromListClick(Sender: TObject);
+    procedure pm_FindStaleClick(Sender: TObject);
     procedure pm_SaveGameListClick(Sender: TObject);
     procedure Mnu_AutoLoadOnStartClick(Sender: TObject);
     procedure pm_ScanForROMsClick(Sender: TObject);
@@ -322,6 +328,9 @@ type
     procedure pmVideoPopup(Sender: TObject);
     procedure lbListRomsClick(Sender: TObject);
     procedure aFindDuplicatesExecute(Sender: TObject);
+    procedure Mnu_FileNameToGameNameClick(Sender: TObject);
+    procedure pm_FindImageClick(Sender: TObject);
+    procedure pm_FindVideoClick(Sender: TObject);
 
    private
 
@@ -335,7 +344,8 @@ type
       FIsLoading: Boolean;
       FGodMode, FAutoHash, FDelWoPrompt, FGenesisLogo,
       FShowTips, FFolderIsOnPi, FPiPrompts, FSysIsRecal,
-      FPiLoadedOnce: Boolean;
+      FPiLoadedOnce, FGameListChanged, FChangingSystem,
+      FSuppressDialogs: Boolean;
       FRecalLogin, FRecalPwd, FRetroLogin, FRetroPwd: string;
       FSSLogin, FSSPwd: string;
       FScrapedGame: TGame;
@@ -432,7 +442,15 @@ type
       procedure SaveGamelist(const FileName: string; aGameList: TObjectList<TGame>);
       procedure AddRomList(aRoms: TStrings);
       procedure RefreshListRoms;
+      procedure FileNameToGameName;
+      function ConfirmSaveGameList( aOnSwitch: Boolean ): Boolean;
       function GetGameMediaStatus( aGame: TGame ): TGameMediaStatus;
+      function GetImageFolderPath: string;
+      function GetVideoFolderPath: string;
+      function EnsureMediaFolder( const aFolderRel: string ): Boolean;
+      procedure ScrapeAndApplySelectedGames;
+      procedure FindImageInSubfolders;
+      procedure FindVideoInSubfolders;
       procedure WMAutoLoad( var Msg: TMessage ); message WM_APP + 1;
 
 
@@ -483,6 +501,64 @@ begin
    else begin
       Result:= FRootPath + FCurrentFolder + aPath;
       Result:= StringReplace( Result, '/', '\', [rfReplaceAll] );
+   end;
+end;
+
+//Returns the folder (relative, with trailing slash, as stored in the gamelist
+//xml) in which the game images are saved. If no game has an image yet, falls
+//back to the standard "media/images" folder.
+function TFrm_Editor.GetImageFolderPath: string;
+begin
+   //The leading "./" matches the format the consoles (e.g. the R36H) expect
+   //for image/video paths in gamelist.xml.
+   if FImageFolder.IsEmpty then
+      Result:= './' + Cst_MediaFolderName + '/' + Cst_MediaImageSubFolder + '/'
+   else if Copy( FImageFolder, 1, 2 ) = './' then
+      Result:= FImageFolder
+   else
+      Result:= './' + FImageFolder;
+end;
+
+//Returns the folder (relative, with trailing slash) in which the game videos
+//are saved. Falls back to the standard "media/videos" folder when none exists.
+function TFrm_Editor.GetVideoFolderPath: string;
+begin
+   //The leading "./" matches the format the consoles (e.g. the R36H) expect
+   //for image/video paths in gamelist.xml.
+   if FVideoFolder.IsEmpty then
+      Result:= './' + Cst_MediaFolderName + '/' + Cst_MediaVideoSubFolder + '/'
+   else if Copy( FVideoFolder, 1, 2 ) = './' then
+      Result:= FVideoFolder
+   else
+      Result:= './' + FVideoFolder;
+end;
+
+//Ensures the given relative media folder exists on disk. If it is missing,
+//prompts the user and creates it on confirmation. Returns True when the folder
+//is (or was made) available, False if the user declined or an error occurred.
+function TFrm_Editor.EnsureMediaFolder( const aFolderRel: string ): Boolean;
+var
+   FullPath: string;
+begin
+   Result:= True;
+   FullPath:= FRootPath + FCurrentFolder +
+              StringReplace( aFolderRel, '/', '\', [rfReplaceAll] );
+   if DirectoryExists( FullPath ) then Exit;
+
+   if MyMessageDlg( Rst_CreateFolder, mtConfirmation, [mbYes, mbNo],
+                    [Rst_Yes, Rst_No], Rst_Info ) <> mrYes then begin
+      Result:= False;
+      Exit;
+   end;
+
+   try
+      TDirectory.CreateDirectory( FullPath );
+      Result:= DirectoryExists( FullPath );
+   except
+      on E: Exception do begin
+         WarnUser( Rst_CreateFolderError + sLineBreak + E.Message );
+         Result:= False;
+      end;
    end;
 end;
 
@@ -709,6 +785,7 @@ begin
    Mnu_AutoLoadOnStart.Checked := FAutoLoadOnStart;
    TStyleManager.TrySetStyle( Cst_ThemeNameStr[GetThemeEnum( FThemeNumber )] );
    FPiLoadedOnce:= False;
+   FGameListChanged:= False;
    FTempXmlPath:= ExtractFilePath( Application.ExeName ) + Cst_TempXml;
    CounterGuard:= TCriticalSection.Create;
 //   Img_System.Picture.Assign(icSystems.Images[3].SourceImages[0].Image);
@@ -828,6 +905,44 @@ begin
    Btn_SaveChanges.Enabled:= False;
 end;
 
+//Reloads the game list of the currently selected system only, re-reading its
+//gamelist.xml from disk (e.g. after an external change or after scanning).
+procedure TFrm_Editor.Mnu_ReloadGameListClick(Sender: TObject);
+var
+   _GameListPath: string;
+   _Folder: string;
+   _NewList: TObjectList<TGame>;
+begin
+   if Cbx_Systems.ItemIndex < 0 then Exit;
+   if FCurrentFolder = '' then Exit;
+
+   _GameListPath:= FRootPath + FCurrentFolder + Cst_GameListFileName;
+   if not FileExists( _GameListPath ) then Exit;
+
+   Screen.Cursor:= crHourGlass;
+   try
+      //Purge the current views first so no stale TGame pointers are kept:
+      //the old game list is freed when the GSystemList entry is replaced.
+      lbListRoms.Clear;
+      if Assigned( FRomsStatusMap ) then
+         FRomsStatusMap.Clear;
+      FFilteredGames.Free;
+      FFilteredGames:= nil;
+
+      _NewList:= BuildGamesList( _GameListPath, False );
+      if _NewList = nil then Exit;
+
+      _Folder:= getCurrentFolderName;
+      if GSystemList.ContainsKey( _Folder ) then
+         GSystemList.Remove( _Folder );
+      GSystemList.Add( _Folder, _NewList );
+
+      LoadGamesList( _Folder );
+   finally
+      Screen.Cursor:= crDefault;
+   end;
+end;
+
 //allows running the command line that stops/starts Emulation Station
 //used if we access the gamelists directly on the Pi, otherwise the changes
 //are not taken into account. Uses the small utility plink.exe
@@ -891,11 +1006,13 @@ begin
    GSystemList.Clear;
 
    //The TGame objects are freed by GSystemList.Clear (doOwnsValues):
-   //we also purge the advanced list and its cache so we no longer keep stale
-   //pointers (otherwise there is an AV risk on the next repaint).
+   //we also purge the advanced list, its cache and the filtered games so we no
+   //longer keep stale pointers (otherwise there is an AV risk on the next repaint).
    lbListRoms.Clear;
    if Assigned( FRomsStatusMap ) then
       FRomsStatusMap.Clear;
+   FFilteredGames.Free;
+   FFilteredGames:= nil;
 
    //Reset the valid folder counter to 0
    ValidFolderCount:= 0;
@@ -1169,11 +1286,45 @@ end;
 
 //Action when selecting an item in the systems combobox
 procedure TFrm_Editor.Cbx_SystemsChange(Sender: TObject);
+var
+   _PrevSystem: string;
+   _system: TSystemKindObject;
+   ii: Integer;
 begin
-   FSelectedSystem:= getCurrentFolderName;
-   EmptyScrapeFields;
-   Edt_Search.Text:= '';
-   LoadGamesList( getCurrentFolderName );
+   //guard against re-entrancy when restoring the selection after a cancel
+   if FChangingSystem then Exit;
+   FChangingSystem:= True;
+   try
+      //remember the current system so we can restore it if the switch is cancelled
+      _PrevSystem:= FSelectedSystem;
+
+      //ask the user to save the current gamelist if it was modified
+      if not ConfirmSaveGameList( True ) then begin
+         //restore the previous system selection and cancel the switch
+         Cbx_Systems.ItemIndex:= -1;
+         for ii:= 0 to Pred( Cbx_Systems.Items.Count ) do begin
+            _system:= TSystemKindObject( Cbx_Systems.Items.Objects[ii] );
+            if ( _system.FSystemKind = skOther ) then begin
+               if ( Cbx_Systems.Items[ii] = _PrevSystem ) then begin
+                  Cbx_Systems.ItemIndex:= ii;
+                  Break;
+               end;
+            end else if ( Cst_SystemKindFolderNames[_system.FSystemKind] = _PrevSystem ) then begin
+               Cbx_Systems.ItemIndex:= ii;
+               Break;
+            end;
+         end;
+         FSelectedSystem:= _PrevSystem;
+         Exit;
+      end;
+
+      FSelectedSystem:= getCurrentFolderName;
+      EmptyScrapeFields;
+      Edt_Search.Text:= '';
+      LoadGamesList( getCurrentFolderName );
+   finally
+      FChangingSystem:= False;
+   end;
 end;
 
 //when typing text in the search field
@@ -1655,8 +1806,10 @@ begin
    Lbl_Developer.Enabled:= True;
    Btn_MoreInfos.Enabled:= aValue;
    Btn_Delete.Enabled:= True;
-   Btn_Scrape.Enabled:= aValue;
-   bScrape.Enabled := aValue;
+   //Batch scraping of all selected games is supported, so the Scrape button
+   //stays available during a multi-selection (aValue = False).
+   Btn_Scrape.Enabled:= True;
+   bScrape.Enabled := True;
    Btn_ChangeImage.Enabled:= aValue;
    Btn_ChangeVideo.Enabled:= aValue;
    Btn_RemovePicture.Enabled:= aValue;
@@ -1678,7 +1831,9 @@ begin
 
    Chk_ManualCRC.Enabled:= Btn_Scrape.Enabled;
 
-   Tbs_Scrape.TabVisible:= aValue;
+   //The Scrape tab stays available during a multi-selection so the batch
+   //scraping progress can be displayed there.
+   Tbs_Scrape.TabVisible:= True;
 
    if FIsWine then
       Tbs_Video.TabVisible:= False
@@ -2015,8 +2170,14 @@ begin
                end;
             end ) );
 
-         for _Item in _Items do
-            lbListRoms.Items.AddObject( _Item.Name, _Item );
+         for _Item in _Items do begin
+            if ( not Chk_ListByRom.Checked ) then
+               lbListRoms.Items.AddObject( _Item.Name, _Item )
+            else if ( Chk_FullRomName.Checked ) then
+               lbListRoms.Items.AddObject( StringReplace( _Item.RomPath, './', '', [] ), _Item )
+            else
+               lbListRoms.Items.AddObject( _Item.RomName, _Item );
+         end;
       finally
          _Items.Free;
       end;
@@ -2116,6 +2277,9 @@ var
    _CountByName: TDictionary<string, Integer>;
    _CountByRom: TDictionary<string, Integer>;
    _CountByCrc: TDictionary<string, Integer>;
+   _FirstOfGroupByName: TDictionary<string, TGame>;
+   _FirstOfGroupByRom: TDictionary<string, TGame>;
+   _FirstOfGroupByCrc: TDictionary<string, TGame>;
    _Game: TGame;
    _Crc: string;
    ii: Integer;
@@ -2126,6 +2290,9 @@ begin
    _CountByName:= TDictionary<string, Integer>.Create;
    _CountByRom:= TDictionary<string, Integer>.Create;
    _CountByCrc:= TDictionary<string, Integer>.Create;
+   _FirstOfGroupByName:= TDictionary<string, TGame>.Create;
+   _FirstOfGroupByRom:= TDictionary<string, TGame>.Create;
+   _FirstOfGroupByCrc:= TDictionary<string, TGame>.Create;
    try
       for _Game in _SystemList do begin
          if _CountByName.ContainsKey( _Game.Name ) then
@@ -2148,19 +2315,69 @@ begin
          end;
       end;
 
-      //Highlight the duplicates in lbListRoms (by name, file or CRC)
+      //Highlight the duplicates in lbListRoms (by name, file or CRC).
+      //The first game of each duplicate group is green, the following ones red,
+      //so that several consecutive duplicate groups do not blend together.
+      //Reset all colors first.
+      for ii:= 0 to Pred( lbListRoms.Items.Count ) do begin
+         _Game:= lbListRoms.Items.Objects[ii] as TGame;
+         if _Game <> nil then _Game.Color:= -1;
+      end;
+
+      //Record the first game (in list order) of each duplicate group so it can
+      //be highlighted in green while the other members are highlighted in red.
       for ii:= 0 to Pred( lbListRoms.Items.Count ) do begin
          _Game:= lbListRoms.Items.Objects[ii] as TGame;
          if _Game = nil then Continue;
          if ( _CountByName.ContainsKey( _Game.Name ) and
-              ( _CountByName[_Game.Name] > 1 ) ) or
-            ( _CountByRom.ContainsKey( ExtractFileName( _Game.PhysicalRomPath ) ) and
-              ( _CountByRom[ExtractFileName( _Game.PhysicalRomPath )] > 1 ) ) or
-            ( ( not _Game.Crc32.IsEmpty ) and _CountByCrc.ContainsKey( _Game.Crc32 ) and
-              ( _CountByCrc[_Game.Crc32] > 1 ) ) then
-            _Game.Color:= clRed
-         else
-            _Game.Color:= -1;
+              ( _CountByName[_Game.Name] > 1 ) and
+              ( not _FirstOfGroupByName.ContainsKey( _Game.Name ) ) ) then
+            _FirstOfGroupByName.Add( _Game.Name, _Game );
+         if ( _CountByRom.ContainsKey( ExtractFileName( _Game.PhysicalRomPath ) ) and
+              ( _CountByRom[ExtractFileName( _Game.PhysicalRomPath )] > 1 ) and
+              ( not _FirstOfGroupByRom.ContainsKey( ExtractFileName( _Game.PhysicalRomPath ) ) ) ) then
+            _FirstOfGroupByRom.Add( ExtractFileName( _Game.PhysicalRomPath ), _Game );
+         if ( not _Game.Crc32.IsEmpty ) and
+            _CountByCrc.ContainsKey( _Game.Crc32 ) and
+            ( _CountByCrc[_Game.Crc32] > 1 ) and
+            ( not _FirstOfGroupByCrc.ContainsKey( _Game.Crc32 ) ) then
+            _FirstOfGroupByCrc.Add( _Game.Crc32, _Game );
+      end;
+
+      //Mark the first (in list order) and the following members of each group.
+      //A game can belong to several groups (name, rom file, crc); green (group
+      //starter) takes precedence over red.
+      for ii:= 0 to Pred( lbListRoms.Items.Count ) do begin
+         _Game:= lbListRoms.Items.Objects[ii] as TGame;
+         if _Game = nil then Continue;
+
+         //Name group
+         if ( _CountByName.ContainsKey( _Game.Name ) and
+              ( _CountByName[_Game.Name] > 1 ) ) then begin
+            if _Game.Color = -1 then _Game.Color:= clRed;
+            if _FirstOfGroupByName.ContainsKey( _Game.Name ) and
+               ( _FirstOfGroupByName[_Game.Name] = _Game ) then
+               _Game.Color:= clGreen;
+         end;
+
+         //ROM file group
+         if ( _CountByRom.ContainsKey( ExtractFileName( _Game.PhysicalRomPath ) ) and
+              ( _CountByRom[ExtractFileName( _Game.PhysicalRomPath )] > 1 ) ) then begin
+            if _Game.Color = -1 then _Game.Color:= clRed;
+            if _FirstOfGroupByRom.ContainsKey( ExtractFileName( _Game.PhysicalRomPath ) ) and
+               ( _FirstOfGroupByRom[ExtractFileName( _Game.PhysicalRomPath )] = _Game ) then
+               _Game.Color:= clGreen;
+         end;
+
+         //CRC group
+         if ( not _Game.Crc32.IsEmpty ) and
+            _CountByCrc.ContainsKey( _Game.Crc32 ) and
+            ( _CountByCrc[_Game.Crc32] > 1 ) then begin
+            if _Game.Color = -1 then _Game.Color:= clRed;
+            if _FirstOfGroupByCrc.ContainsKey( _Game.Crc32 ) and
+               ( _FirstOfGroupByCrc[_Game.Crc32] = _Game ) then
+               _Game.Color:= clGreen;
+         end;
       end;
       lbListRoms.Invalidate;
       mLog.Lines.Add( 'Duplicates highlighted (by name / file / CRC)' );
@@ -2168,6 +2385,9 @@ begin
       _CountByName.Free;
       _CountByRom.Free;
       _CountByCrc.Free;
+      _FirstOfGroupByName.Free;
+      _FirstOfGroupByRom.Free;
+      _FirstOfGroupByCrc.Free;
    end;
 end;
 
@@ -2229,11 +2449,14 @@ procedure TFrm_Editor.ApplyGameImage( aGame: TGame );
 var
     _Node: IXMLNode;
     _NodeAdded: Boolean;
-    _ImageLink: string;
+    _ImageLink, _ImageFolder: string;
 begin
     Screen.Cursor:= crHourGlass;
 
-    Img_Game.Picture.SaveToFile( FRootPath + FCurrentFolder + FImageFolder +
+    _ImageFolder:= GetImageFolderPath;
+    if not EnsureMediaFolder( _ImageFolder ) then Exit;
+
+    Img_Game.Picture.SaveToFile( FRootPath + FCurrentFolder + _ImageFolder +
                                  '\' + aGame.RomNameWoExt + Cst_ImageSuffixPng );
 
     XMLDoc.LoadFromFile( FRootPath + FCurrentFolder + Cst_GameListFileName );
@@ -2245,7 +2468,7 @@ begin
        _Node := _Node.NextSibling;
     until not Assigned( _Node );
 
-    _ImageLink:= FImageFolder + aGame.RomNameWoExt + Cst_ImageSuffixPng;
+    _ImageLink:= _ImageFolder + aGame.RomNameWoExt + Cst_ImageSuffixPng;
 
     _NodeAdded:= False;
     if not Assigned( _Node.ChildNodes.FindNode( Cst_ImageLink ) ) then begin
@@ -2260,10 +2483,11 @@ begin
     end;
     XMLDoc.SaveToFile( FRootPath + FCurrentFolder + Cst_GameListFileName );
     XMLDoc.Active:= False;
+    FGameListChanged:= True;
 
     aGame.ImagePath:= _ImageLink;
     aGame.PhysicalImagePath:= FRootPath + FCurrentFolder +
-                              IncludeTrailingPathDelimiter( FImageFolder ) +
+                              IncludeTrailingPathDelimiter( _ImageFolder ) +
                               aGame.RomNameWoExt + Cst_ImageSuffixPng;
 
     Screen.Cursor:= crDefault;
@@ -2272,7 +2496,7 @@ end;
 // Replace the video of a game.
 procedure TFrm_Editor.ChangeVideo( const aPath: string; aGame: TGame );
 var
-   _VideoLink: string;
+   _VideoLink, _VideoFolder: string;
    _Node: IXMLNode;
    _NodeAdded: Boolean;
 begin
@@ -2281,12 +2505,13 @@ begin
 
    StopGameVideo();
 
+   _VideoFolder:= GetVideoFolderPath;
+
    // Create the video directory if not existing
-   if not TDirectory.Exists(FRootPath + FCurrentFolder + FVideoFolder ) then
-      TDirectory.CreateDirectory(FRootPath + FCurrentFolder + FVideoFolder );
+   if not EnsureMediaFolder( _VideoFolder ) then Exit;
 
    // Copy the video to the rompath
-   TFile.Copy(aPath, FRootPath + FCurrentFolder + FVideoFolder +
+   TFile.Copy(aPath, FRootPath + FCurrentFolder + _VideoFolder +
                      '\' + aGame.RomNameWoExt + Cst_VideoSuffixMp4, true );
 
    // Open the gamelist XML file
@@ -2302,7 +2527,7 @@ begin
    until not Assigned( _Node );
 
    // We write the path to the video
-   _VideoLink:= FVideoFolder + aGame.RomNameWoExt + Cst_VideoSuffixMp4;
+   _VideoLink:= _VideoFolder + aGame.RomNameWoExt + Cst_VideoSuffixMp4;
 
    if not Assigned( _Node.ChildNodes.FindNode( Cst_VideoLink ) ) then begin
       _Node.AddChild( Cst_VideoLink );
@@ -2317,11 +2542,12 @@ begin
    end;
    XMLDoc.SaveToFile( FRootPath + FCurrentFolder + Cst_GameListFileName );
    XMLDoc.Active:= False;
+   FGameListChanged:= True;
 
    // And finally we update the associated TGame object
    aGame.VideoPath:= _VideoLink;
    aGame.PhysicalVideoPath:= FRootPath + FCurrentFolder +
-                             IncludeTrailingPathDelimiter( FVideoFolder ) +
+                             IncludeTrailingPathDelimiter( _VideoFolder ) +
                              aGame.RomNameWoExt + Cst_VideoSuffixMp4;
 
    Screen.Cursor:= crDefault;
@@ -2380,6 +2606,7 @@ begin
    XMLDoc.Active:= True;
    XMLDoc.SaveToFile( _GameListPath );
    XMLDoc.Active:= False;
+   FGameListChanged:= True;
 
    //Delete the game image
    if not _ImageReused then
@@ -2437,6 +2664,7 @@ begin
    XMLDoc.Active:= True;
    XMLDoc.SaveToFile( _GameListPath );
    XMLDoc.Active:= False;
+   FGameListChanged:= True;
 
    StopGameVideo();
 
@@ -2704,6 +2932,10 @@ begin
       XMLDoc.SaveToFile( _GameListPath );
       XMLDoc.Active:= False;
 
+      //mark the current gamelist as modified if something actually changed
+      if _NodeAdded then
+         FGameListChanged:= True;
+
       //refresh the list
       LoadGamesList( getCurrentFolderName );
 
@@ -2747,7 +2979,8 @@ var
    _Game: TGame;
    _GameListPath, _Date, _NewName, _ImageLink, _VideoLink,
    Name, Region, Rating, Developer, Players,
-   Description, Publisher, Date, Genre, VideoPath: string;
+   Description, Publisher, Date, Genre, VideoPath,
+   _ImageFolder, _VideoFolder: string;
    _NodeAdded, _NameChanged: Boolean;
    _Index: Integer;
 begin
@@ -2778,7 +3011,16 @@ begin
          if ( _Node.ChildNodes.Nodes[Cst_Path].Text = _Game.RomPath ) then Break;
          _Node:= _Node.NextSibling;
       until not Assigned( _Node );
-      if not Assigned( _Node ) then Exit;
+
+      //A game that was added by "Scan for ROMs" is in memory but has no node
+      //in the gamelist.xml yet. Create one so the scraped/saved data is written
+      //instead of silently discarding it.
+      if not Assigned( _Node ) then begin
+         _Node:= XMLDoc.DocumentElement.AddChild( Cst_Game );
+         _Node.AddChild( Cst_Path ).Text:= _Game.RomPath;
+         _Node.AddChild( Cst_Name ).Text:= _Game.Name;
+         _NodeAdded:= True;
+      end;
 
       if aSaveInfos then begin
          //We can now update the info in the xml if needed
@@ -2921,10 +3163,13 @@ begin
       end;
 
       if ( aSavePic ) and ( Img_Scrape.Picture.Graphic <> nil ) then begin
-         Img_Scrape.Picture.SaveToFile( FRootPath + FCurrentFolder + FImageFolder +
+         _ImageFolder:= GetImageFolderPath;
+         if not EnsureMediaFolder( _ImageFolder ) then Exit;
+
+         Img_Scrape.Picture.SaveToFile( FRootPath + FCurrentFolder + _ImageFolder +
                                         '\' + FScrapedGame.RomNameWoExt + Cst_ImageSuffixPng );
 
-         _ImageLink:= FImageFolder + FScrapedGame.RomNameWoExt + Cst_ImageSuffixPng;
+         _ImageLink:= _ImageFolder + FScrapedGame.RomNameWoExt + Cst_ImageSuffixPng;
 
          if not Assigned( _Node.ChildNodes.FindNode( Cst_ImageLink ) ) then begin
             _Node.AddChild( Cst_ImageLink );
@@ -2936,11 +3181,14 @@ begin
       end;
 
       if ( aSaveVideo ) and ( FVideoScrapeLink <> '' ) then begin
-         VideoPath := FRootPath + FCurrentFolder + FVideoFolder +
+         _VideoFolder:= GetVideoFolderPath;
+         if not EnsureMediaFolder( _VideoFolder ) then Exit;
+
+         VideoPath := FRootPath + FCurrentFolder + _VideoFolder +
                            '\' + FScrapedGame.RomNameWoExt + Cst_VideoSuffixMp4;
          SaveLinkToFile ( FVideoScrapeLink, VideoPath );
 
-         _VideoLink:= FVideoFolder + FScrapedGame.RomNameWoExt + Cst_VideoSuffixMp4;
+         _VideoLink:= _VideoFolder + FScrapedGame.RomNameWoExt + Cst_VideoSuffixMp4;
 
          if not Assigned( _Node.ChildNodes.FindNode( Cst_VideoLink ) ) then begin
             _Node.AddChild( Cst_VideoLink );
@@ -2960,6 +3208,10 @@ begin
       end;
       XMLDoc.SaveToFile( _GameListPath );
       XMLDoc.Active:= False;
+
+      //mark the current gamelist as modified if something actually changed
+      if ( _NameChanged ) or ( _NodeAdded ) then
+         FGameListChanged:= True;
 
       //refresh the list
       LoadGamesList( getCurrentFolderName );
@@ -2998,6 +3250,25 @@ end;
 
 procedure TFrm_Editor.SaveGamelist(const FileName: string;
   aGameList: TObjectList<TGame>);
+
+  //Adds a child node to aNode only when aValue is not empty, so that no empty
+  //tags (e.g. <video></video>) are written. Some consoles (e.g. the R36H) do
+  //not show descriptions and pictures when such empty tags are present.
+  procedure AddNonEmptyChild( aNode: IXMLNode; const aTag, aValue: string );
+  begin
+     if not aValue.IsEmpty then
+        aNode.AddChild( aTag ).Text:= aValue;
+  end;
+
+  //Returns aValue prefixed with "./" (required by the console for relative
+  //image/video paths) unless it is empty or already prefixed.
+  function WithLinkPrefix( const aValue: string ): string;
+  begin
+     Result:= aValue;
+     if ( not Result.IsEmpty ) and ( Copy( Result, 1, 2 ) <> './' ) then
+        Result:= './' + Result;
+  end;
+
 var
   XMLDoc: IXMLDocument;
   RootNode, GameNode: IXMLNode;
@@ -3019,16 +3290,16 @@ begin
       GameNode := RootNode.AddChild(Cst_game);
 
       GameNode.AddChild(Cst_Path).Text := Game.RomPath;
-      GameNode.AddChild(Cst_Name).Text := Game.Name;
-      GameNode.AddChild(Cst_Description).Text := Game.Description;
-      GameNode.AddChild(Cst_ImageLink).Text := Game.ImagePath;
-      GameNode.AddChild(Cst_VideoLink).Text := Game.VideoPath;
-      GameNode.AddChild(Cst_Genre).Text := Game.Genre;
-      GameNode.AddChild(Cst_Rating).Text := Game.Rating; 
-      GameNode.AddChild(Cst_Players).Text := Game.Players;
-      GameNode.AddChild(Cst_Developer).Text := Game.Developer;
-      GameNode.AddChild(Cst_ReleaseDate).Text := Game.ReleaseDate;
-      GameNode.AddChild(Cst_Publisher).Text := Game.Publisher;
+      AddNonEmptyChild( GameNode, Cst_Name, Game.Name );
+      AddNonEmptyChild( GameNode, Cst_Description, Game.Description );
+      AddNonEmptyChild( GameNode, Cst_ImageLink, WithLinkPrefix( Game.ImagePath ) );
+      AddNonEmptyChild( GameNode, Cst_VideoLink, WithLinkPrefix( Game.VideoPath ) );
+      AddNonEmptyChild( GameNode, Cst_Genre, Game.Genre );
+      AddNonEmptyChild( GameNode, Cst_Rating, Game.Rating );
+      AddNonEmptyChild( GameNode, Cst_Players, Game.Players );
+      AddNonEmptyChild( GameNode, Cst_Developer, Game.Developer );
+      AddNonEmptyChild( GameNode, Cst_ReleaseDate, Game.ReleaseDate );
+      AddNonEmptyChild( GameNode, Cst_Publisher, Game.Publisher );
     end;
 
     XMLDoc.SaveToFile(FileName);
@@ -3043,6 +3314,122 @@ var
 begin
   GSystemList.TryGetValue( getCurrentFolderName, gameList);
   SaveGamelist( IncludeTrailingPathDelimiter( FRootPath + getCurrentFolderName )+Cst_GameListFileName, gameList);
+  FGameListChanged:= False;
+end;
+
+//Sets the name of every selected game to its rom file name (without extension)
+procedure TFrm_Editor.FileNameToGameName;
+var
+   _Node: IXMLNode;
+   _Game: TGame;
+   _GameListPath: string;
+   _FileName: string;
+   _Changed: Boolean;
+   ii: Integer;
+begin
+   if ( lbListRoms.SelCount = 0 ) then Exit;
+
+   Screen.Cursor:= crHourGlass;
+   ProgressBar.Visible:= True;
+   ProgressBar.Position:= 0;
+   ProgressBar.Max:= lbListRoms.SelCount;
+   _Changed:= False;
+
+   //build the path to the gamelist.xml
+   _GameListPath:= FRootPath + FCurrentFolder + Cst_GameListFileName;
+
+   //Open the xml file
+   XMLDoc.LoadFromFile( _GameListPath );
+
+   //loop over the selected games
+   for ii:= 0 to Pred( lbListRoms.Items.Count ) do begin
+      if not lbListRoms.Selected[ii] then Continue;
+
+      _Game:= ( lbListRoms.Items.Objects[ii] as TGame );
+      if _Game = nil then Continue;
+
+      //the file name without its extension becomes the new game name
+      _FileName:= _Game.RomNameWoExt;
+      if _FileName.IsEmpty then Continue;
+      if _Game.Name.Equals( _FileName ) then Continue;
+
+      //Retrieve the first "game" node and find the matching one
+      _Node:= XMLDoc.DocumentElement.ChildNodes.FindNode( Cst_Game );
+      repeat
+         if ( _Node.ChildNodes.Nodes[Cst_Path].Text = _Game.RomPath ) then Break;
+         _Node:= _Node.NextSibling;
+      until not Assigned( _Node );
+      if not Assigned( _Node ) then Continue;
+
+      //update the in-memory game and the xml node
+      _Game.Name:= _FileName;
+      if not Assigned( _Node.ChildNodes.FindNode( Cst_Name ) ) then
+         _Node.AddChild( Cst_Name );
+      _Node.ChildNodes.Nodes[Cst_Name].Text:= _FileName;
+
+      //refresh the displayed list item text
+      lbListRoms.Items[ii]:= _FileName;
+
+      _Changed:= True;
+      ProgressBar.Position:= ProgressBar.Position + 1;
+   end;
+
+   if _Changed then begin
+      XMLDoc.SaveToFile( _GameListPath );
+      FGameListChanged:= True;
+      if ( lbListRoms.Count > 0 ) and ( lbListRoms.ItemIndex >= 0 ) then
+         LoadGame( ( lbListRoms.Items.Objects[lbListRoms.ItemIndex] as TGame ) );
+   end;
+
+   XMLDoc.Active:= False;
+   ProgressBar.Visible:= False;
+   Screen.Cursor:= crDefault;
+   lbListRoms.SetFocus;
+end;
+
+//on the "Use file name as game name" context menu item
+procedure TFrm_Editor.Mnu_FileNameToGameNameClick(Sender: TObject);
+begin
+   FileNameToGameName;
+end;
+
+//Finds an image for the selected games in the system subfolders.
+procedure TFrm_Editor.pm_FindImageClick(Sender: TObject);
+begin
+   FindImageInSubfolders;
+end;
+
+//Finds a video for the selected games in the system subfolders.
+procedure TFrm_Editor.pm_FindVideoClick(Sender: TObject);
+begin
+   FindVideoInSubfolders;
+end;
+
+//Prompts the user to save the gamelist if it was modified.
+//Returns True if the caller may proceed (system switch or close),
+//False if the user cancelled.
+function TFrm_Editor.ConfirmSaveGameList( aOnSwitch: Boolean ): Boolean;
+var
+   gameList: TObjectList<TGame>;
+begin
+   Result:= True;
+   if not FGameListChanged then Exit;
+
+   case MyMessageDlg( Rst_SaveChanges, mtConfirmation,
+                      [mbYes, mbNo, mbCancel], [Rst_Yes, Rst_No, Rst_Cancel], Rst_Info ) of
+      mrYes:
+         begin
+            if GSystemList.TryGetValue( getCurrentFolderName, gameList ) and
+               Assigned( gameList ) then
+               SaveGamelist( IncludeTrailingPathDelimiter( FRootPath + getCurrentFolderName ) +
+                             Cst_GameListFileName, gameList );
+            FGameListChanged:= False;
+         end;
+      mrNo:
+         FGameListChanged:= False;
+      mrCancel:
+         Result:= False;
+   end;
 end;
 
 procedure TFrm_Editor.pm_ScanForROMsClick(Sender: TObject);
@@ -3094,7 +3481,431 @@ begin
    end;
 end;
 
-//Various sections of the selection menu
+//Scrapes all the selected games and directly applies the results to the
+//gamelist (name, description and best picture). Only games for which the
+//scrape returns usable data are modified, so the user just has to save.
+procedure TFrm_Editor.ScrapeAndApplySelectedGames;
+var
+   _Game: TGame;
+   _Node: IXMLNode;
+   _GameListPath, _ImageLink, _ImageFolder, _Ext, _PhysPath, _Name, _Desc: string;
+   _NodeAdded, _Changed: Boolean;
+   _Applied, ii: Integer;
+   _BestPic: TMediaInfo;
+   _PreviewImg: TImage;
+begin
+   if lbListRoms.SelCount <= 1 then Exit;
+
+   Screen.Cursor:= crHourGlass;
+   FSuppressDialogs:= True;
+   ProgressBarScrape.Visible:= True;
+   ProgressBarScrape.Position:= 0;
+   ProgressBarScrape.Max:= lbListRoms.SelCount;
+   _Applied:= 0;
+   _Changed:= False;
+
+   //Switch to the Scrape tab so the user can watch the batch scraping progress.
+   Pgc_Editor.ActivePage:= Tbs_Scrape;
+
+   try
+      for ii:= 0 to Pred( lbListRoms.Items.Count ) do begin
+         if not lbListRoms.Selected[ii] then Continue;
+
+         _Game:= ( lbListRoms.Items.Objects[ii] as TGame );
+
+         //reset per-game scrape data
+         FScrapedGame:= _Game;
+         FInfosList.Clear;
+         FPictureLinks.Clear;
+         FImgList.Clear;
+         FVideoScrapeLink:= '';
+
+         if not GetGameXml( GetCurrentSystemId, _Game ) then begin
+            ProgressBarScrape.Position:= ProgressBarScrape.Position + 1;
+            Continue;
+         end;
+
+         ParseXml;
+         if ( FInfosList.Count = 0 ) then begin
+            ProgressBarScrape.Position:= ProgressBarScrape.Position + 1;
+            Continue;
+         end;
+
+         //fill the scrape fields from the parsed data
+         FillFields;
+         _Name:= Edt_ScrapeName.Text;
+         _Desc:= Mmo_ScrapeDescription.Text;
+         //Let the UI repaint so the current game's scraped data is visible
+         //before the (blocking) picture download below.
+         Application.ProcessMessages;
+
+         _BestPic:= nil;
+         if ( FPictureLinks.Count > 0 ) then
+            _BestPic:= FPictureLinks[0];
+
+         _GameListPath:= FRootPath + FCurrentFolder + Cst_GameListFileName;
+         XMLDoc.LoadFromFile( _GameListPath );
+         _Node:= XMLDoc.DocumentElement.ChildNodes.FindNode( Cst_Game );
+         while Assigned( _Node ) do begin
+            if ( _Node.ChildNodes.Nodes[Cst_Path].Text = _Game.RomPath ) then Break;
+            _Node:= _Node.NextSibling;
+         end;
+         if not Assigned( _Node ) then begin
+            XMLDoc.Active:= False;
+            ProgressBarScrape.Position:= ProgressBarScrape.Position + 1;
+            Continue;
+         end;
+
+         _NodeAdded:= False;
+
+         //apply name if it changed
+         if ( not _Name.IsEmpty ) and ( not _Game.Name.Equals( _Name ) ) then begin
+            if not Assigned( _Node.ChildNodes.FindNode( Cst_Name ) ) then begin
+               _Node.AddChild( Cst_Name );
+               _NodeAdded:= True;
+            end;
+            _Node.ChildNodes.Nodes[Cst_Name].Text:= _Name;
+            _Game.Name:= _Name;
+         end;
+
+         //apply description if it changed
+         if ( not _Desc.IsEmpty ) and ( not _Game.Description.Equals( _Desc ) ) then begin
+            if not Assigned( _Node.ChildNodes.FindNode( Cst_Description ) ) then begin
+               _Node.AddChild( Cst_Description );
+               _NodeAdded:= True;
+            end;
+            _Node.ChildNodes.Nodes[Cst_Description].Text:= _Desc;
+            _Game.Description:= _Desc;
+         end;
+
+         //download and apply the best picture
+         if Assigned( _BestPic ) then begin
+            _ImageFolder:= GetImageFolderPath;
+            if EnsureMediaFolder( _ImageFolder ) then begin
+               _Ext:= _BestPic.FileExt;
+               if _Ext.IsEmpty then _Ext:= Cst_PngExt;
+               if ( _Ext[1] <> '.' ) then _Ext:= '.' + _Ext;
+
+               _PhysPath:= FRootPath + FCurrentFolder +
+                           StringReplace( _ImageFolder, '/', '\', [rfReplaceAll] ) +
+                           '\' + _Game.RomNameWoExt + _Ext;
+
+               SaveLinkToFile( _BestPic.FileLink, _PhysPath );
+
+               if FileExists( _PhysPath ) then begin
+                  _ImageLink:= _ImageFolder + _Game.RomNameWoExt + _Ext;
+                  if not Assigned( _Node.ChildNodes.FindNode( Cst_ImageLink ) ) then begin
+                     _Node.AddChild( Cst_ImageLink );
+                     _NodeAdded:= True;
+                  end;
+                  _Node.ChildNodes.Nodes[Cst_ImageLink].Text:= _ImageLink;
+                  _Game.ImagePath:= _ImageLink;
+                  _Game.PhysicalImagePath:= GetPhysicalMediaPath( _ImageLink );
+end;
+             end;
+          end;
+
+          //Preview the scraped picture on the Scrape tab for the current game.
+          FImgList.Clear;
+          if FileExists( _PhysPath ) then begin
+             _PreviewImg:= TImage.Create( nil );
+             try
+                _PreviewImg.Picture.LoadFromFile( _PhysPath );
+                _PreviewImg.AutoSize:= True;
+                _PreviewImg.Proportional:= True;
+                _PreviewImg.Center:= True;
+                _PreviewImg.Visible:= False;
+                FImgList.Add( _PreviewImg );
+             except
+                on E: Exception do
+                   _PreviewImg.Free;
+             end;
+          end;
+          DisplayPictures;
+
+          if _NodeAdded then begin
+             XMLDoc.XML.Text:= Xml.Xmldoc.FormatXMLData( XMLDoc.XML.Text );
+             XMLDoc.Active:= True;
+          end;
+          XMLDoc.SaveToFile( _GameListPath );
+          XMLDoc.Active:= False;
+
+         _Changed:= True;
+         Inc( _Applied );
+         ProgressBarScrape.Position:= ProgressBarScrape.Position + 1;
+         //Process pending paint/input messages so the progress bar and the
+         //current game's scrape results are actually repainted on screen.
+         Application.ProcessMessages;
+      end;
+   finally
+      FSuppressDialogs:= False;
+      ProgressBarScrape.Visible:= False;
+      Screen.Cursor:= crDefault;
+   end;
+
+   if _Changed then begin
+      FGameListChanged:= True;
+      LoadGamesList( getCurrentFolderName );
+   end;
+
+   Pgc_Editor.ActivePage:= Tbs_Main;
+
+   MyMessageDlg( Format( Rst_ScrapeBatchDone, [ _Applied ] ), mtInformation,
+                 [mbOK], [Rst_Ok], Rst_Info );
+end;
+
+//Searches the whole system folder (and its subfolders) for an image file whose
+//name matches each selected game's rom name, and applies it when a game has no
+//image yet.
+procedure TFrm_Editor.FindImageInSubfolders;
+
+   //Recursively looks for <romName>.<png|jpg|jpeg> under aDir.
+   function SearchForImage( const aDir, aRomNameWoExt: string ): string;
+   var
+      SR: TSearchRec;
+      FullPath, Ext: string;
+   begin
+      Result:= '';
+      //check the current folder first
+      if ( FindFirst( aDir + aRomNameWoExt + '.*', faAnyFile, SR ) = 0 ) then begin
+         repeat
+            Ext:= AnsiLowerCase( ExtractFileExt( SR.Name ) );
+            if ( Ext = Cst_ImageSuffixPng ) or ( Ext = Cst_ImageSuffixJpg ) or
+               ( Ext = Cst_ImageSuffixJpeg ) then begin
+               Result:= aDir + SR.Name;
+               FindClose( SR );
+               Exit;
+            end;
+         until ( FindNext( SR ) <> 0 );
+         FindClose( SR );
+      end;
+
+      //then recurse into subfolders
+      if ( FindFirst( aDir + '*', faDirectory, SR ) = 0 ) then begin
+         repeat
+            if ( SR.Name <> '.' ) and ( SR.Name <> '..' ) then begin
+               FullPath:= IncludeTrailingPathDelimiter( aDir + SR.Name );
+               Result:= SearchForImage( FullPath, aRomNameWoExt );
+               if not Result.IsEmpty then begin
+                  FindClose( SR );
+                  Exit;
+               end;
+            end;
+         until ( FindNext( SR ) <> 0 );
+         FindClose( SR );
+      end;
+   end;
+
+var
+   _Game: TGame;
+   _Node: IXMLNode;
+   _GameListPath, _ImageLink, _Root, _FoundPath: string;
+   _Changed: Boolean;
+   _Applied, ii: Integer;
+begin
+   if lbListRoms.SelCount = 0 then Exit;
+
+   _Root:= FRootPath + FCurrentFolder;
+
+   Screen.Cursor:= crHourGlass;
+   ProgressBar.Visible:= True;
+   ProgressBar.Position:= 0;
+   ProgressBar.Max:= lbListRoms.SelCount;
+   _Applied:= 0;
+   _Changed:= False;
+
+   try
+      for ii:= 0 to Pred( lbListRoms.Items.Count ) do begin
+         if not lbListRoms.Selected[ii] then Continue;
+
+         _Game:= ( lbListRoms.Items.Objects[ii] as TGame );
+
+         //skip games that already have a physical image
+         if FileExists( _Game.PhysicalImagePath ) then begin
+            ProgressBar.Position:= ProgressBar.Position + 1;
+            Continue;
+         end;
+
+         //search the whole system folder tree for <romname>.(png|jpg|jpeg)
+         _FoundPath:= SearchForImage( _Root, _Game.RomNameWoExt );
+         if _FoundPath.IsEmpty then begin
+            ProgressBar.Position:= ProgressBar.Position + 1;
+            Continue;
+         end;
+
+         //relative link (with forward slashes) for the gamelist
+         _ImageLink:= ExtractRelativePath( _Root, _FoundPath );
+         _ImageLink:= StringReplace( _ImageLink, '\', '/', [rfReplaceAll] );
+         //consoles (e.g. the R36H) require a leading "./" on relative paths
+         if Copy( _ImageLink, 1, 2 ) <> './' then
+            _ImageLink:= './' + _ImageLink;
+
+         _GameListPath:= _Root + Cst_GameListFileName;
+         XMLDoc.LoadFromFile( _GameListPath );
+         _Node:= XMLDoc.DocumentElement.ChildNodes.FindNode( Cst_Game );
+         while Assigned( _Node ) do begin
+            if ( _Node.ChildNodes.Nodes[Cst_Path].Text = _Game.RomPath ) then Break;
+            _Node:= _Node.NextSibling;
+         end;
+         if not Assigned( _Node ) then begin
+            XMLDoc.Active:= False;
+            ProgressBar.Position:= ProgressBar.Position + 1;
+            Continue;
+         end;
+
+         if not Assigned( _Node.ChildNodes.FindNode( Cst_ImageLink ) ) then
+            _Node.AddChild( Cst_ImageLink );
+         _Node.ChildNodes.Nodes[Cst_ImageLink].Text:= _ImageLink;
+
+         XMLDoc.SaveToFile( _GameListPath );
+         XMLDoc.Active:= False;
+
+         _Game.ImagePath:= _ImageLink;
+         _Game.PhysicalImagePath:= GetPhysicalMediaPath( _ImageLink );
+
+         _Changed:= True;
+         Inc( _Applied );
+         ProgressBar.Position:= ProgressBar.Position + 1;
+      end;
+   finally
+      ProgressBar.Visible:= False;
+      Screen.Cursor:= crDefault;
+   end;
+
+   if _Changed then begin
+      FGameListChanged:= True;
+      LoadGamesList( getCurrentFolderName );
+   end;
+
+   MyMessageDlg( Format( Rst_FindImageDone, [ _Applied ] ), mtInformation,
+                 [mbOK], [Rst_Ok], Rst_Info );
+end;
+
+//Searches the whole system folder (and its subfolders) for a video file whose
+//name matches each selected game's rom name, and applies it when a game has no
+//video yet.
+procedure TFrm_Editor.FindVideoInSubfolders;
+
+   //Recursively looks for <romName>.mp4 under aDir.
+   function SearchForVideo( const aDir, aRomNameWoExt: string ): string;
+   var
+      SR: TSearchRec;
+      FullPath, Ext: string;
+   begin
+      Result:= '';
+      //check the current folder first
+      if ( FindFirst( aDir + aRomNameWoExt + '.*', faAnyFile, SR ) = 0 ) then begin
+         repeat
+            Ext:= AnsiLowerCase( ExtractFileExt( SR.Name ) );
+            if ( Ext = Cst_VideoSuffixMp4 ) then begin
+               Result:= aDir + SR.Name;
+               FindClose( SR );
+               Exit;
+            end;
+         until ( FindNext( SR ) <> 0 );
+         FindClose( SR );
+      end;
+
+      //then recurse into subfolders
+      if ( FindFirst( aDir + '*', faDirectory, SR ) = 0 ) then begin
+         repeat
+            if ( SR.Name <> '.' ) and ( SR.Name <> '..' ) then begin
+               FullPath:= IncludeTrailingPathDelimiter( aDir + SR.Name );
+               Result:= SearchForVideo( FullPath, aRomNameWoExt );
+               if not Result.IsEmpty then begin
+                  FindClose( SR );
+                  Exit;
+               end;
+            end;
+         until ( FindNext( SR ) <> 0 );
+         FindClose( SR );
+      end;
+   end;
+
+var
+   _Game: TGame;
+   _Node: IXMLNode;
+   _GameListPath, _VideoLink, _Root, _FoundPath: string;
+   _Changed: Boolean;
+   _Applied, ii: Integer;
+begin
+   if lbListRoms.SelCount = 0 then Exit;
+
+   _Root:= FRootPath + FCurrentFolder;
+
+   Screen.Cursor:= crHourGlass;
+   ProgressBar.Visible:= True;
+   ProgressBar.Position:= 0;
+   ProgressBar.Max:= lbListRoms.SelCount;
+   _Applied:= 0;
+   _Changed:= False;
+
+   try
+      for ii:= 0 to Pred( lbListRoms.Items.Count ) do begin
+         if not lbListRoms.Selected[ii] then Continue;
+
+         _Game:= ( lbListRoms.Items.Objects[ii] as TGame );
+
+         //skip games that already have a physical video
+         if FileExists( _Game.PhysicalVideoPath ) then begin
+            ProgressBar.Position:= ProgressBar.Position + 1;
+            Continue;
+         end;
+
+         //search the whole system folder tree for <romname>.mp4
+         _FoundPath:= SearchForVideo( _Root, _Game.RomNameWoExt );
+         if _FoundPath.IsEmpty then begin
+            ProgressBar.Position:= ProgressBar.Position + 1;
+            Continue;
+         end;
+
+         //relative link (with forward slashes) for the gamelist
+         _VideoLink:= ExtractRelativePath( _Root, _FoundPath );
+         _VideoLink:= StringReplace( _VideoLink, '\', '/', [rfReplaceAll] );
+         //consoles (e.g. the R36H) require a leading "./" on relative paths
+         if Copy( _VideoLink, 1, 2 ) <> './' then
+            _VideoLink:= './' + _VideoLink;
+
+         _GameListPath:= _Root + Cst_GameListFileName;
+         XMLDoc.LoadFromFile( _GameListPath );
+         _Node:= XMLDoc.DocumentElement.ChildNodes.FindNode( Cst_Game );
+         while Assigned( _Node ) do begin
+            if ( _Node.ChildNodes.Nodes[Cst_Path].Text = _Game.RomPath ) then Break;
+            _Node:= _Node.NextSibling;
+         end;
+         if not Assigned( _Node ) then begin
+            XMLDoc.Active:= False;
+            ProgressBar.Position:= ProgressBar.Position + 1;
+            Continue;
+         end;
+
+         if not Assigned( _Node.ChildNodes.FindNode( Cst_VideoLink ) ) then
+            _Node.AddChild( Cst_VideoLink );
+         _Node.ChildNodes.Nodes[Cst_VideoLink].Text:= _VideoLink;
+
+         XMLDoc.SaveToFile( _GameListPath );
+         XMLDoc.Active:= False;
+
+         _Game.VideoPath:= _VideoLink;
+         _Game.PhysicalVideoPath:= GetPhysicalMediaPath( _VideoLink );
+
+         _Changed:= True;
+         Inc( _Applied );
+         ProgressBar.Position:= ProgressBar.Position + 1;
+      end;
+   finally
+      ProgressBar.Visible:= False;
+      Screen.Cursor:= crDefault;
+   end;
+
+   if _Changed then begin
+      FGameListChanged:= True;
+      LoadGamesList( getCurrentFolderName );
+   end;
+
+   MyMessageDlg( Format( Rst_FindVideoDone, [ _Applied ] ), mtInformation,
+                 [mbOK], [Rst_Ok], Rst_Info );
+end;
 procedure TFrm_Editor.Mnu_SetFavoriteClick(Sender: TObject);
 begin
    SetFavOrHidden( True, True );
@@ -3190,11 +4001,15 @@ begin
       XMLDoc.XML.Text:= Xml.Xmldoc.FormatXMLData( XMLDoc.XML.Text );
       XMLDoc.Active:= True;
    end;
-   XMLDoc.SaveToFile( _GameListPath );
-   XMLDoc.Active:= False;
+XMLDoc.SaveToFile( _GameListPath );
+      XMLDoc.Active:= False;
 
-   //refresh the list
-   LoadGamesList( getCurrentFolderName );
+      //mark the current gamelist as modified if something actually changed
+      if _NodeAdded then
+         FGameListChanged:= True;
+
+      //refresh the list
+      LoadGamesList( getCurrentFolderName );
 
    Screen.Cursor:= crDefault;
 end;
@@ -3326,6 +4141,7 @@ begin
     XMLDoc.Active:= True;
     XMLDoc.SaveToFile( _GameListPath );
     XMLDoc.Active:= False;
+    FGameListChanged:= True;
 
     //Delete the game image
     if not _ImageReused then
@@ -3726,6 +4542,7 @@ begin
    //save the xml file
    XMLDoc.SaveToFile( _GameListPath );
    XMLDoc.Active:= False;
+   FGameListChanged:= True;
 end;
 
 //Action on clicking the About menu item
@@ -3870,6 +4687,35 @@ begin
   LoadGamesList( getCurrentFolderName );
 end;
 
+//Selects in the list all the stale records: games whose rom file is missing.
+//They are selected so the user can review and delete them with the existing
+//"Delete selected game(s)" command (they are useless without a rom).
+procedure TFrm_Editor.pm_FindStaleClick(Sender: TObject);
+var
+  ii, _Count: Integer;
+  _Game: TGame;
+begin
+  _Count:= 0;
+  //Clear any existing selection first so only stale records stay selected.
+  for ii:= 0 to Pred( lbListRoms.Items.Count ) do
+     lbListRoms.Selected[ii]:= False;
+  for ii:= 0 to Pred( lbListRoms.Items.Count ) do begin
+     _Game:= lbListRoms.Items.Objects[ii] as TGame;
+     if ( _Game <> nil ) and _Game.IsOrphan then begin
+        lbListRoms.Selected[ii]:= True;
+        Inc( _Count );
+     end;
+  end;
+
+  lbListRoms.SetFocus;
+
+  if _Count = 0 then
+     MyMessageDlg( Rst_NoStaleRecord, mtInformation, [mbOK], [Rst_Ok], Rst_Info )
+  else
+     MyMessageDlg( Format( Rst_FindStaleDone, [ _Count ] ), mtInformation,
+                   [mbOK], [Rst_Ok], Rst_Info );
+end;
+
 //Sets the source list of the shared context menu (lbListRoms)
 //from the popup that fired (Sender is the TPopupMenu itself).
 procedure TFrm_Editor.pmGameListPopup(Sender: TObject);
@@ -3921,6 +4767,7 @@ begin
    //save the xml file
    XMLDoc.SaveToFile( _GameListPath );
    XMLDoc.Active:= False;
+   FGameListChanged:= True;
 end;
 
 //theme selection
@@ -4069,6 +4916,7 @@ begin
    //and save
    XMLDoc.SaveToFile( _GameListPath );
    XMLDoc.Active:= False;
+   FGameListChanged:= True;
 
     Screen.Cursor:= crDefault;
 end;
@@ -4241,12 +5089,56 @@ procedure TFrm_Editor.ParseXml;
       Result.Add( id, List );
    end;
 
+   //Returns a numeric preference for a media region (higher = more preferred).
+   //ScreenScraper returns one media node per region for the same type, so we
+   //keep only the variant matching the preferred regions, in this order:
+   //World, Screenscraper fallback, the user's language region, USA, Europe,
+   //Japan, any other specific region, then the empty region.
+   function GetRegionPriority( const aRegion: string ): Integer;
+   begin
+      Result:= 40;   //default for any specific region
+      case GetCountryEnum( aRegion ) of
+         cnWor: Result:= 100;
+         cnUs:  Result:= 70;
+         cnEu:  Result:= 60;
+         cnJp:  Result:= 50;
+      end;
+      //the screenscraper generated fallback is second best
+      if ( aRegion = 'ss' ) then Result:= 90;
+      //the user's language region is preferred over the generic ones
+      case GetLangEnum( FLanguage ) of
+         lnFrench:        if ( aRegion = 'fr' ) then Result:= 80;
+         lnGerman:        if ( aRegion = 'de' ) then Result:= 80;
+         lnSpanish:       if ( aRegion = 'sp' ) then Result:= 80;
+         lnPortuguese_BR: if ( aRegion = 'br' ) then Result:= 80;
+         lnEnglish:       if ( ( aRegion = 'uk' ) or ( aRegion = 'us' ) ) then Result:= 80;
+      end;
+      //an empty region is the least preferred
+      if ( aRegion = '' ) then Result:= 10;
+   end;
+
+   //Returns whether the media type is one of the selected image types
+   function IsImageTypeSelected( const aType: string ): Boolean;
+   begin
+      Result:= ( ( aType = Cst_MediaBox2d ) and ( Chk_Box2D.Checked ) ) or
+               ( ( aType = Cst_MediaScreenShot ) and ( Chk_Screenshot.Checked ) ) or
+               ( ( aType = Cst_MediaSsTitle ) and ( Chk_Title.Checked ) ) or
+               ( ( aType = Cst_MediaBox3d ) and ( Chk_Box3D.Checked ) ) or
+               ( ( aType = Cst_MediaMix1 ) and ( Chk_Mix1.Checked ) ) or
+               ( ( aType = Cst_MediaMix2 ) and ( Chk_Mix2.Checked ) ) or
+               ( ( aType = Cst_MediaArcadeBox1 ) and ( Chk_ArcadeBox.Checked ) ) or
+               ( ( aType = Cst_MediaWheel ) and ( Chk_Wheel.Checked ) );
+   end;
+
 var
    Nodes: IXMLNodeList;
    RootNode, Node: IXMLNode;
    ii: Integer;
    List: TStringList;
    Media: TMediaInfo;
+   MediaBest: TDictionary<string, TMediaInfo>;
+   MediaBestRegion: TDictionary<string, string>;
+   aType: string;
 begin
    //opening the xml file
    XMLDoc.LoadFromFile( FTempXmlPath );
@@ -4309,40 +5201,47 @@ begin
    Node:= RootNode.ChildNodes.FindNode( Cst_MediaNode );
    if Assigned( Node ) then begin
       Nodes:= Node.ChildNodes;
-      if Assigned( Nodes ) and ( Nodes.Count > 0 ) then begin
-         //And loop to find the nodes we are interested in
-         for ii:= 0 to Pred( Nodes.Count ) do begin
-            // Video types enable the Save Video button and keep the link for later
-            if ( ( Nodes[ii].Attributes[Cst_AttType] = Cst_MediaVideo ) and
-                 ( Chk_Video.Checked ) ) then begin
-               FVideoScrapeLink:= Nodes[ii].Text;
-               Chk_ScrapeVideo.Checked:= true;
-               Chk_ScrapeVideo.Enabled:= true;
-            end;
-            if ( ( Nodes[ii].Attributes[Cst_AttType] = Cst_MediaBox2d ) and
-                 ( Chk_Box2D.Checked ) ) or
-               ( ( Nodes[ii].Attributes[Cst_AttType] = Cst_MediaScreenShot ) and
-                 ( Chk_Screenshot.Checked ) ) or
-               ( ( Nodes[ii].Attributes[Cst_AttType] = Cst_MediaSsTitle ) and
-                 ( Chk_Title.Checked ) ) or
-               ( ( Nodes[ii].Attributes[Cst_AttType] = Cst_MediaBox3d ) and
-                 ( Chk_Box3D.Checked ) ) or
-               ( ( Nodes[ii].Attributes[Cst_AttType] = Cst_MediaMix1 ) and
-                 ( Chk_Mix1.Checked ) ) or
-               ( ( Nodes[ii].Attributes[Cst_AttType] = Cst_MediaMix2 ) and
-                 ( Chk_Mix2.Checked ) ) or
-               ( ( Nodes[ii].Attributes[Cst_AttType] = Cst_MediaArcadeBox1 ) and
-                 ( Chk_ArcadeBox.Checked ) ) or
-               ( ( Nodes[ii].Attributes[Cst_AttType] = Cst_MediaWheel ) and
-                 ( Chk_Wheel.Checked ) ) then begin
-               Media:= TMediaInfo.Create;
-               Media.FileExt:= Nodes[ii].Attributes[Cst_AttFormat];
-               Media.FileLink:= Nodes[ii].Text;
-               FPictureLinks.Add( Media );
-            end;
-         end;
-      end;
-   end;
+if Assigned( Nodes ) and ( Nodes.Count > 0 ) then begin
+         //Video types enable the Save Video button and keep the link for later
+          for ii:= 0 to Pred( Nodes.Count ) do begin
+             if ( ( Nodes[ii].Attributes[Cst_AttType] = Cst_MediaVideo ) and
+                  ( Chk_Video.Checked ) ) then begin
+                FVideoScrapeLink:= Nodes[ii].Text;
+                Chk_ScrapeVideo.Checked:= true;
+                Chk_ScrapeVideo.Enabled:= true;
+                Break;
+             end;
+          end;
+
+          //For each selected image type, keep only the variant of the preferred
+          //region instead of downloading every region variant of that type.
+          MediaBest:= TDictionary<string, TMediaInfo>.Create;
+          MediaBestRegion:= TDictionary<string, string>.Create;
+          try
+             for ii:= 0 to Pred( Nodes.Count ) do begin
+                aType:= Nodes[ii].Attributes[Cst_AttType];
+                if not IsImageTypeSelected( aType ) then Continue;
+                if ( not MediaBest.ContainsKey( aType ) ) or
+                   ( GetRegionPriority( Nodes[ii].Attributes[Cst_AttRegion] ) >
+                     GetRegionPriority( MediaBestRegion[aType] ) ) then begin
+                   if not MediaBest.ContainsKey( aType ) then begin
+                      Media:= TMediaInfo.Create;
+                      MediaBest.Add( aType, Media );
+                      MediaBestRegion.Add( aType, Nodes[ii].Attributes[Cst_AttRegion] );
+                   end else
+                      MediaBestRegion[aType]:= Nodes[ii].Attributes[Cst_AttRegion];
+                   MediaBest[aType].FileExt:= Nodes[ii].Attributes[Cst_AttFormat];
+                   MediaBest[aType].FileLink:= Nodes[ii].Text;
+                end;
+             end;
+             for Media in MediaBest.Values do
+                FPictureLinks.Add( Media );
+          finally
+             MediaBest.Free;
+             MediaBestRegion.Free;
+          end;
+       end;
+    end;
 
    try
       RootNode:= XMLDoc.ChildNodes[Cst_DataNode].ChildNodes[Cst_UserNode];
@@ -4417,9 +5316,36 @@ end;
 
 //Display of the retrieved images
 procedure TFrm_Editor.DisplayPictures;
+
+   //Adds the current image of the game (if any) as an extra selectable picture,
+   //so the user can keep the existing image instead of a downloaded one.
+   procedure AddExistingImage;
+   var
+      ExistingImg: TImage;
+   begin
+      if Assigned( FScrapedGame ) and
+         ( not FScrapedGame.PhysicalImagePath.IsEmpty ) and
+         FileExists( FScrapedGame.PhysicalImagePath ) then begin
+         ExistingImg:= TImage.Create( nil );
+         try
+            ExistingImg.Picture.LoadFromFile( FScrapedGame.PhysicalImagePath );
+            ExistingImg.AutoSize:= True;
+            ExistingImg.Proportional:= True;
+            ExistingImg.Center:= True;
+            ExistingImg.Visible:= False;
+            FImgList.Add( ExistingImg );
+         except
+            on E: Exception do
+               ExistingImg.Free;
+         end;
+      end;
+   end;
+
 var
    ii, Left, Count: Integer;
 begin
+   AddExistingImage;
+
    Count:= FImgList.Count;
    if ( Count = 0 ) then Exit;
 
@@ -4444,6 +5370,10 @@ begin
 
    //to force the scrollbox to correctly display the scrollbar...
    Scl_Pictures.Realign;
+
+   //Select the first picture by default so a scrape can be saved right away
+   //without the user having to click one of the thumbnails.
+   ImgScrapedClick( FImgList.Items[0] );
 end;
 
 //Filling the fields with the scraped info
@@ -4706,6 +5636,9 @@ end;
 //To warn the user if problem or no media found
 procedure TFrm_Editor.WarnUser( const aMessage: string );
 begin
+   //During a silent batch operation, do not interrupt the user with a modal
+   //dialog for each failure; the batch reports a summary at the end instead.
+   if FSuppressDialogs then Exit;
    Screen.Cursor:= crDefault;
    ShowMessage( aMessage );
 end;
@@ -4745,6 +5678,13 @@ begin
    Pgc_Editor.ActivePage := Tbs_Scrape;
    EmptyScrapeFields;
    ClearScrapeMedia;
+
+   //When several games are selected, scrape them all and apply the results
+   //directly to the gamelist (the user only has to save it afterwards).
+   if ( lbListRoms.SelCount > 1 ) then begin
+      ScrapeAndApplySelectedGames;
+      Exit;
+   end;
 
    //disable to avoid stray clicks during loading
    Img_Loading.Visible:= True;
@@ -4835,6 +5775,12 @@ end;
 // Stop video to prevent crashing the app on closing
 procedure TFrm_Editor.FormCloseQuery(Sender: TObject; var CanClose: Boolean);
 begin
+   //ask the user to save the gamelist if it was modified before closing
+   if FGameListChanged then
+      CanClose:= ConfirmSaveGameList( False );
+
+   if not CanClose then Exit;
+
    if not FIsWine then
    begin
       Wmp_Video.controls.stop;
